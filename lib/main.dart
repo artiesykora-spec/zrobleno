@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'app_store.dart';
 import 'home.dart';
@@ -7,6 +8,7 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('uk');
   final store = await AppStore.load();
   runApp(ZroblenoApp(store: store));
 }

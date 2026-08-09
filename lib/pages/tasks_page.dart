@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../app_store.dart';
 import '../dialogs.dart';
-import '../models.dart';
 import '../theme.dart';
 
 class TasksPage extends StatelessWidget {

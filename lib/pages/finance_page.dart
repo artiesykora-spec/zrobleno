@@ -1,7 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../app_store.dart'; import '../dialogs.dart'; import '../theme.dart';
+import '../app_store.dart';
+import '../dialogs.dart';
+import '../theme.dart';
 
-class FinancePage extends StatelessWidget { const FinancePage({required this.store, super.key}); final AppStore store;
-  @override Widget build(BuildContext context) => AnimatedBuilder(animation: store, builder: (context, _) { final data = [...store.expenses]..sort((a,b) => b.date.compareTo(a.date)); final total = data.fold<double>(0, (s,e) => s + e.amount); return Scaffold(backgroundColor: Colors.transparent, floatingActionButton: FloatingActionButton(onPressed: () => editExpense(context, store), child: const Icon(Icons.add)), body: ListView(padding: const EdgeInsets.fromLTRB(16,22,16,100), children: [const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: GradientTitle('Фінанси')), const SizedBox(height: 16), Container(padding: const EdgeInsets.all(22), decoration: BoxDecoration(borderRadius: BorderRadius.circular(26), gradient: const LinearGradient(colors: [Color(0xFF25644C), Color(0xFF533A8C)])), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Загальні витрати', style: TextStyle(color: Colors.white70)), Text('${total.toStringAsFixed(2)} ₴', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900))])), const SizedBox(height: 18), const Text('Історія', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), if (data.isEmpty) const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('Витрат поки немає', style: TextStyle(color: Colors.white54)))), ...data.map((e) => Dismissible(key: ValueKey(e.id), direction: DismissDirection.endToStart, onDismissed: (_) => store.deleteExpense(e), background: const Card(color: Colors.red, child: Align(alignment: Alignment.centerRight, child: Padding(padding: EdgeInsets.all(20), child: Icon(Icons.delete)))), child: Card(child: ListTile(onTap: () => editExpense(context, store, item: e), leading: const CircleAvatar(backgroundColor: Color(0x3343E69B), child: Icon(Icons.receipt_long, color: green)), title: Text(e.title), subtitle: Text('${e.category} • ${DateFormat('dd.MM.yyyy').format(e.date)}'), trailing: Text('-${e.amount.toStringAsFixed(2)} ₴', style: const TextStyle(fontWeight: FontWeight.bold, color: orange))))))])); }); }
+class FinancePage extends StatelessWidget {
+  const FinancePage({required this.store, super.key});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: store,
+        builder: (context, _) {
+          final data = [...store.expenses]
+            ..sort((a, b) => b.date.compareTo(a.date));
+          final total = data.fold<double>(0, (sum, item) => sum + item.amount);
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            floatingActionButton: FloatingActionButton(
+              onPressed: () => editExpense(context, store),
+              child: const Icon(Icons.add),
+            ),
+            body: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 22, 16, 100),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: GradientTitle('Фінанси'),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF25644C), Color(0xFF533A8C)],
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Загальні витрати', style: TextStyle(color: Colors.white70)),
+                      Text('${total.toStringAsFixed(2)} ₴', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text('Історія', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                if (data.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: Text('Витрат поки немає', style: TextStyle(color: Colors.white54))),
+                  ),
+                ...data.map(
+                  (expense) => Dismissible(
+                    key: ValueKey(expense.id),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (_) => store.deleteExpense(expense),
+                    background: const Card(
+                      color: Colors.red,
+                      child: Align(alignment: Alignment.centerRight, child: Padding(padding: EdgeInsets.all(20), child: Icon(Icons.delete))),
+                    ),
+                    child: Card(
+                      child: ListTile(
+                        onTap: () => editExpense(context, store, item: expense),
+                        leading: const CircleAvatar(backgroundColor: Color(0x3343E69B), child: Icon(Icons.receipt_long, color: green)),
+                        title: Text(expense.title),
+                        subtitle: Text('${expense.category} • ${DateFormat('dd.MM.yyyy').format(expense.date)}'),
+                        trailing: Text('-${expense.amount.toStringAsFixed(2)} ₴', style: const TextStyle(fontWeight: FontWeight.bold, color: orange)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
 }
