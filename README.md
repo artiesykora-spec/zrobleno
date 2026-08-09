@@ -22,6 +22,8 @@ flutter run
 
 Для Android потрібні Flutter stable, Android SDK та JDK 17. Мінімальна версія Android — API 23.
 
+CI APK підписується публічним `zrobleno-test.keystore`, щоб тестові версії можна було оновлювати поверх попередніх. Цей ключ призначений лише для тестування; реліз Google Play використовуватиме окремий приватний ключ.
+
 ## APK
 
 Workflow **Android APK** запускає аналіз, тести та release-збірку. У GitHub відкрийте **Actions → Android APK → останній успішний запуск → Artifacts** і завантажте `zrobleno-android-apk`.

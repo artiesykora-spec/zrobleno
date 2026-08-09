@@ -21,7 +21,15 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
-    buildTypes { release { signingConfig = signingConfigs.debug } }
+    signingConfigs {
+        testRelease {
+            storeFile file("zrobleno-test.keystore")
+            storePassword "zrobleno-test"
+            keyAlias "zrobleno"
+            keyPassword "zrobleno-test"
+        }
+    }
+    buildTypes { release { signingConfig = signingConfigs.testRelease } }
 }
 
 dependencies {
