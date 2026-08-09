@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../app_store.dart';
+import '../services/notification_service.dart';
 import '../theme.dart';
+import '../widgets/pixel_bird.dart';
+import 'settings_page.dart';
+import 'world_page.dart';
 
 class TodayPage extends StatelessWidget {
   const TodayPage({required this.store, super.key});
@@ -34,15 +38,50 @@ class TodayPage extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 22, 16, 32),
             children: [
-              Text(
-                DateFormat('EEEE, d MMMM', 'uk').format(DateTime.now()),
-                style: const TextStyle(color: Colors.white54),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          DateFormat('EEEE, d MMMM', 'uk')
+                              .format(DateTime.now()),
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                        const GradientTitle('Сьогодні'),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Нагадування',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => SettingsPage(store: store),
+                      ),
+                    ),
+                    icon: const Icon(Icons.settings_outlined),
+                  ),
+                ],
               ),
-              const GradientTitle('Сьогодні'),
+              const SizedBox(height: 12),
+              _AssistantCard(store: store),
               const SizedBox(height: 18),
-              const Text(
-                'Ліки',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  const Text(
+                    'Ліки',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${_time(store.reminders.morningHour, store.reminders.morningMinute)} · '
+                    '${_time(store.reminders.eveningHour, store.reminders.eveningMinute)}',
+                    style: const TextStyle(color: Colors.white38),
+                  ),
+                ],
               ),
               Card(
                 child: Column(
@@ -50,17 +89,29 @@ class TodayPage extends StatelessWidget {
                     _Medicine(
                       title: 'Ранкові таблетки',
                       icon: Icons.wb_sunny_outlined,
+                      iconColor: sunYellow,
                       value: store.morningMedicine,
-                      onChanged: (value) =>
-                          store.toggleMedicine(true, value!),
+                      onChanged: (value) {
+                        final taken = value ?? false;
+                        store.toggleMedicine(true, taken);
+                        if (taken) {
+                          NotificationService.instance.cancelToday(true);
+                        }
+                      },
                     ),
                     const Divider(height: 1),
                     _Medicine(
                       title: 'Вечірні таблетки',
                       icon: Icons.nights_stay_outlined,
+                      iconColor: purple,
                       value: store.eveningMedicine,
-                      onChanged: (value) =>
-                          store.toggleMedicine(false, value!),
+                      onChanged: (value) {
+                        final taken = value ?? false;
+                        store.toggleMedicine(false, taken);
+                        if (taken) {
+                          NotificationService.instance.cancelToday(false);
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -119,27 +170,109 @@ class TodayPage extends StatelessWidget {
           );
         },
       );
+
+  static String _time(int hour, int minute) =>
+      '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+}
+
+class _AssistantCard extends StatelessWidget {
+  const _AssistantCard({required this.store});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = store.assistantMessage;
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => WorldPage(store: store)),
+      ),
+      child: Ink(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1C3D33), Color(0xFF302253)],
+          ),
+          border: Border.all(color: const Color(0xFF3C4B47)),
+        ),
+        child: Row(
+          children: [
+            PixelBird(stage: store.game.birdStage, size: 72),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Синичка',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.grain, color: sunYellow, size: 17),
+                      Text(' ${store.game.seeds}'),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey(message),
+                    duration: const Duration(milliseconds: 1400),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, _) {
+                      final count = (message.length * value)
+                          .ceil()
+                          .clamp(0, message.length)
+                          .toInt();
+                      return Text(
+                        message.substring(0, count),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Торкнись, щоб зайти у мій світ →',
+                    style: TextStyle(color: green, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Medicine extends StatelessWidget {
   const _Medicine({
     required this.title,
     required this.icon,
+    required this.iconColor,
     required this.value,
     required this.onChanged,
   });
 
   final String title;
   final IconData icon;
+  final Color iconColor;
   final bool value;
   final ValueChanged<bool?> onChanged;
 
   @override
   Widget build(BuildContext context) => CheckboxListTile(
-        secondary: Icon(icon, color: value ? green : Colors.white38),
+        secondary: Icon(icon, color: value ? iconColor : Colors.white38),
         title: Text(title),
         subtitle: Text(
-          value ? 'Прийнято' : 'Ще не відмічено',
+          value ? 'Прийнято · +3 зернятка' : 'Ще не відмічено',
           style: TextStyle(color: value ? green : Colors.white38),
         ),
         value: value,
