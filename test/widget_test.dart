@@ -11,7 +11,8 @@ void main() {
     final store = await AppStore.load();
 
     await tester.pumpWidget(ZroblenoApp(store: store));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('Сьогодні'), findsWidgets);
     expect(find.text('Ліки'), findsOneWidget);

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app_store.dart';
@@ -11,269 +13,445 @@ class WorldPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: store,
-        builder: (context, _) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Світ синички'),
-            backgroundColor: Colors.transparent,
-          ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+    animation: store,
+    builder: (context, _) => Scaffold(
+      appBar: AppBar(
+        title: const Text('Світ синички'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          _WorldScene(store: store),
+          const SizedBox(height: 16),
+          Row(
             children: [
-              _WorldScene(store: store),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Icon(Icons.grain, color: sunYellow),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${store.game.seeds} зерняток',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Синичка: рівень ${store.game.birdStage + 1}',
-                    style: const TextStyle(color: Colors.white60),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _UpgradeCard(
-                icon: Icons.home_outlined,
-                color: purple,
-                title: 'Гніздечко · рівень ${store.game.nestLevel}',
-                text: store.game.nestLevel >= 5
-                    ? 'Гніздечко вже максимально затишне.'
-                    : 'Додати нову деталь за ${store.nestUpgradeCost()} зерняток',
-                enabled: store.game.nestLevel < 5 &&
-                    store.game.seeds >= store.nestUpgradeCost(),
-                onTap: store.upgradeNest,
-              ),
-              _UpgradeCard(
-                icon: Icons.local_florist_outlined,
-                color: green,
-                title: 'Садочок · рівень ${store.game.gardenLevel}',
-                text: store.game.gardenLevel >= 5
-                    ? 'Садочок розквітнув повністю.'
-                    : 'Посадити щось за ${store.gardenUpgradeCost()} зерняток',
-                enabled: store.game.gardenLevel < 5 &&
-                    store.game.seeds >= store.gardenUpgradeCost(),
-                onTap: store.upgradeGarden,
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: Text(
-                  'Тут немає покарань: прогрес не зникає. Клякса — лише жартівливе нагадування.',
-                  style: TextStyle(color: Colors.white38),
-                  textAlign: TextAlign.center,
+              const Icon(Icons.grain, color: sunYellow),
+              const SizedBox(width: 8),
+              Text(
+                '${store.game.seeds} зерняток',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                 ),
+              ),
+              const Spacer(),
+              Text(
+                'Синичка · рівень ${store.game.birdStage + 1}',
+                style: const TextStyle(color: Colors.white60),
               ),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 16),
+          _UpgradeCard(
+            icon: Icons.home_outlined,
+            color: purple,
+            title: 'Гніздечко · рівень ${store.game.nestLevel}',
+            text: store.game.nestLevel >= 5
+                ? 'Гніздечко вже максимально затишне.'
+                : 'Додати нову деталь за ${store.nestUpgradeCost()} зерняток',
+            enabled:
+                store.game.nestLevel < 5 &&
+                store.game.seeds >= store.nestUpgradeCost(),
+            onTap: store.upgradeNest,
+          ),
+          _UpgradeCard(
+            icon: Icons.local_florist_outlined,
+            color: green,
+            title: 'Садочок · рівень ${store.game.gardenLevel}',
+            text: store.game.gardenLevel >= 5
+                ? 'Садочок розквітнув повністю.'
+                : 'Посадити щось за ${store.gardenUpgradeCost()} зерняток',
+            enabled:
+                store.game.gardenLevel < 5 &&
+                store.game.seeds >= store.gardenUpgradeCost(),
+            onTap: store.upgradeGarden,
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              'Прогрес не зникає. Клякса — лише маленький жарт після пропущеного дня.',
+              style: TextStyle(color: Colors.white38),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
-class _WorldScene extends StatelessWidget {
+class _WorldScene extends StatefulWidget {
   const _WorldScene({required this.store});
 
   final AppStore store;
 
   @override
+  State<_WorldScene> createState() => _WorldSceneState();
+}
+
+class _WorldSceneState extends State<_WorldScene>
+    with TickerProviderStateMixin {
+  late final AnimationController ambience;
+  late final AnimationController wolf;
+  late bool lastMess;
+
+  @override
+  void initState() {
+    super.initState();
+    ambience = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+    wolf = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5200),
+    );
+    lastMess = widget.store.game.wolfMess;
+    if (lastMess) wolf.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorldScene oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final hasMess = widget.store.game.wolfMess;
+    if (hasMess && !lastMess) {
+      wolf
+        ..reset()
+        ..forward();
+    } else if (!hasMess && lastMess) {
+      wolf.reset();
+    }
+    lastMess = hasMess;
+  }
+
+  @override
+  void dispose() {
+    ambience.dispose();
+    wolf.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Container(
-        height: 390,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF292052), Color(0xFF102C2C)],
-          ),
-          border: Border.all(color: const Color(0xFF393348)),
+    height: 430,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(28),
+      border: Border.all(color: const Color(0xFF3A4D46), width: 1.5),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x44000000),
+          blurRadius: 24,
+          offset: Offset(0, 12),
         ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const Positioned(
-              top: 22,
-              right: 26,
-              child: Icon(Icons.wb_sunny, color: sunYellow, size: 48),
-            ),
-            Positioned(
-              left: 22,
-              bottom: 44,
-              child: _Garden(level: store.game.gardenLevel),
-            ),
-            Positioned(
-              right: 25,
-              bottom: 78,
-              child: _Nest(level: store.game.nestLevel),
-            ),
-            Positioned(
-              right: 66,
-              bottom: 122,
-              child: PixelBird(
-                stage: store.game.birdStage,
-                size: (86 + store.game.birdStage * 7).toDouble(),
+      ],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: AnimatedBuilder(
+      animation: Listenable.merge([ambience, wolf]),
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final breeze = math.sin(ambience.value * math.pi * 2);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Transform.scale(
+                scale: 1.018,
+                child: Transform.translate(
+                  offset: Offset(breeze * 1.5, 0),
+                  child: Image.asset(
+                    'assets/game/world-background.png',
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.none,
+                  ),
+                ),
               ),
-            ),
-            const Positioned(
-              left: 20,
-              top: 78,
-              right: 105,
-              child: DecoratedBox(
+              DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Color(0xEE17171C),
-                  borderRadius: BorderRadius.all(Radius.circular(16)),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'Рада, що ти повернувся! Давай зробимо сьогодні один хороший крок.',
-                    style: TextStyle(fontFamily: 'monospace', height: 1.35),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: .04),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: .18),
+                    ],
                   ),
                 ),
               ),
-            ),
-            if (store.game.wolfMess)
-              Positioned(
-                left: 105,
-                bottom: 12,
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 850),
-                  curve: Curves.easeOutBack,
-                  tween: Tween(begin: -1.0, end: 0.0),
-                  builder: (context, value, child) => Transform.translate(
-                    offset: Offset(value * 180, 0),
-                    child: child,
-                  ),
-                  child: const _Wolf(),
+              CustomPaint(
+                painter: _WorldDetailsPainter(
+                  progress: ambience.value,
+                  nestLevel: widget.store.game.nestLevel,
+                  gardenLevel: widget.store.game.gardenLevel,
                 ),
               ),
-            if (store.game.wolfMess)
               Positioned(
-                right: 118,
-                bottom: 20,
-                child: Semantics(
-                  button: true,
-                  label: 'Прибрати жарт Клякси',
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: store.cleanWolfMess,
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Column(
-                        children: [
-                          Text('〰', style: TextStyle(color: Colors.white54)),
-                          Text('💩', style: TextStyle(fontSize: 34)),
-                          Text(
-                            'прибрати',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
+                left: 14,
+                top: 14,
+                width: math.min(width * .66, 238.0),
+                child: _SpeechBubble(message: widget.store.assistantMessage),
+              ),
+              Positioned(
+                right: 18,
+                top: 121 + breeze * 3.5,
+                child: PixelBird(
+                  stage: widget.store.game.birdStage,
+                  size: 142,
+                  playful: true,
+                ),
+              ),
+              if (widget.store.game.wolfMess) _buildWolf(width),
+              if (widget.store.game.wolfMess && wolf.value >= .56)
+                Positioned(
+                  left: width * .48,
+                  bottom: 22,
+                  child: Semantics(
+                    button: true,
+                    label: 'Прибрати жарт Клякси',
+                    child: GestureDetector(
+                      onTap: widget.store.cleanWolfMess,
+                      child: const _PixelMess(),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 12,
+                bottom: 9,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xC5141A18),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0x553EE4A1)),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    child: Text(
+                      'живий pixel-art світ',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: Color(0xFFD7FFE8),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
-      );
+            ],
+          );
+        },
+      ),
+    ),
+  );
+
+  Widget _buildWolf(double width) {
+    final value = wolf.value;
+    final double x;
+    final bool squat;
+    if (value < .48) {
+      x = -130 + (width * .60 + 130) * Curves.easeOut.transform(value / .48);
+      squat = false;
+    } else if (value < .71) {
+      x = width * .60;
+      squat = value > .54;
+    } else {
+      x =
+          width * .60 +
+          (width + 145 - width * .60) *
+              Curves.easeIn.transform((value - .71) / .29);
+      squat = false;
+    }
+    return Positioned(
+      left: x,
+      bottom: 12 + math.sin(value * math.pi * 16).abs() * (squat ? 0 : 5),
+      child: PixelWolf(size: 125, squat: squat),
+    );
+  }
 }
 
-class _Nest extends StatelessWidget {
-  const _Nest({required this.level});
+class _SpeechBubble extends StatelessWidget {
+  const _SpeechBubble({required this.message});
 
-  final int level;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: const Color(0xE9161B20),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0x995CCBA2)),
+      boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 10)],
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(11),
+      child: Text(
+        message,
+        maxLines: 4,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          color: Color(0xFFF0FFF7),
+          fontSize: 12,
+          height: 1.32,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+}
+
+class _WorldDetailsPainter extends CustomPainter {
+  const _WorldDetailsPainter({
+    required this.progress,
+    required this.nestLevel,
+    required this.gardenLevel,
+  });
+
+  final double progress;
+  final int nestLevel;
+  final int gardenLevel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pixel = math.max(2.0, size.width / 180);
+    final sway = math.sin(progress * math.pi * 2) * pixel;
+
+    void block(Color color, double x, double y, double w, double h) {
+      canvas.drawRect(
+        Rect.fromLTWH(x, y, w, h),
+        Paint()
+          ..color = color
+          ..isAntiAlias = false,
+      );
+    }
+
+    final nestX = size.width * .72;
+    final nestY = size.height * .47;
+    for (var row = 0; row < 4 + nestLevel; row++) {
+      final inset = row * pixel * .65;
+      block(
+        row.isEven ? const Color(0xFF6D4325) : const Color(0xFF9A6835),
+        nestX + inset,
+        nestY + row * pixel * 1.35,
+        size.width * .23 - inset * 2,
+        pixel * 1.6,
+      );
+    }
+    if (nestLevel >= 2) {
+      block(
+        const Color(0xFFF1D78B),
+        nestX + size.width * .06,
+        nestY + pixel * 4,
+        pixel * 4,
+        pixel * 3,
+      );
+    }
+    if (nestLevel >= 4) {
+      block(
+        const Color(0xFF8F70D8),
+        nestX + size.width * .11,
+        nestY + pixel * 3,
+        pixel * 5,
+        pixel * 2,
+      );
+    }
+
+    final flowerColors = [
+      const Color(0xFFFFD45C),
+      const Color(0xFFFF8D7A),
+      const Color(0xFF9B78FF),
+      const Color(0xFF65E7A8),
+      const Color(0xFFFFE9F2),
+    ];
+    for (var index = 0; index < gardenLevel; index++) {
+      final x = size.width * (.10 + index * .075);
+      final base = size.height * .82;
+      block(const Color(0xFF2D7C4C), x, base - 24, pixel * 1.5, 25);
+      block(
+        flowerColors[index % flowerColors.length],
+        x - pixel * 1.5 + sway * (index.isEven ? 1 : -1),
+        base - 31 - index % 2 * 5,
+        pixel * 4.5,
+        pixel * 4.5,
+      );
+      block(
+        const Color(0xFFF8C947),
+        x + sway * (index.isEven ? 1 : -1),
+        base - 29 - index % 2 * 5,
+        pixel * 1.5,
+        pixel * 1.5,
+      );
+    }
+
+    final firefly = Paint()..color = const Color(0xFFFFE992);
+    for (var i = 0; i < 9; i++) {
+      final phase = progress * math.pi * 2 + i * .83;
+      final x = size.width * (.08 + (i * .113) % .84) + math.sin(phase) * 7;
+      final y = size.height * (.26 + (i * .17) % .57) + math.cos(phase) * 6;
+      final opacity = (.25 + (math.sin(phase) + 1) * .34).clamp(0.0, 1.0);
+      firefly.color = const Color(
+        0xFFFFE992,
+      ).withValues(alpha: opacity.toDouble());
+      canvas.drawRect(Rect.fromLTWH(x, y, pixel * 1.5, pixel * 1.5), firefly);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorldDetailsPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.nestLevel != nestLevel ||
+      oldDelegate.gardenLevel != gardenLevel;
+}
+
+class _PixelMess extends StatelessWidget {
+  const _PixelMess();
 
   @override
   Widget build(BuildContext context) => Column(
-        children: [
-          if (level >= 3) const Text('✦', style: TextStyle(color: sunYellow)),
-          Container(
-            width: (110 + level * 6).toDouble(),
-            height: (46 + level * 3).toDouble(),
-            decoration: BoxDecoration(
-              color: const Color(0xFF79543C),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(60),
-                top: Radius.circular(18),
-              ),
-              border: Border.all(color: const Color(0xFFBA8556), width: 3),
-            ),
-          ),
-        ],
-      );
-}
-
-class _Garden extends StatelessWidget {
-  const _Garden({required this.level});
-
-  final int level;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(
-          2 + level,
-          (index) => Padding(
-            padding: const EdgeInsets.only(right: 3),
-            child: Icon(
-              index.isEven ? Icons.local_florist : Icons.grass,
-              color: index.isEven ? orange : green,
-              size: (25 + index % 3 * 4).toDouble(),
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(
+        width: 48,
+        height: 34,
+        child: CustomPaint(painter: _MessPainter()),
+      ),
+      const DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(0xCC17120E),
+          borderRadius: BorderRadius.all(Radius.circular(7)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          child: Text(
+            'прибрати',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
-      );
+      ),
+    ],
+  );
 }
 
-class _Wolf extends StatelessWidget {
-  const _Wolf();
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 115,
-        height: 75,
-        child: CustomPaint(painter: _WolfPainter()),
-      );
-}
-
-class _WolfPainter extends CustomPainter {
+class _MessPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final body = Paint()..color = const Color(0xFF101012);
-    final outline = Paint()
-      ..color = Colors.white38
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    final rect = Rect.fromLTWH(10, 18, 88, 42);
-    canvas.drawOval(rect, body);
-    canvas.drawOval(rect, outline);
-    canvas.drawPath(
-      Path()
-        ..moveTo(75, 20)
-        ..lineTo(82, 3)
-        ..lineTo(90, 22)
-        ..close(),
-      body,
-    );
-    final legs = Paint()
-      ..color = Colors.white60
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-    for (final x in [26.0, 46.0, 68.0, 88.0]) {
-      canvas.drawLine(Offset(x, 54), Offset(x - 3, 70), legs);
-    }
-    final eye = Paint()..color = sunYellow;
-    canvas.drawCircle(const Offset(82, 32), 3, eye);
-    canvas.drawLine(const Offset(8, 35), const Offset(0, 26), legs);
+    final dark = Paint()
+      ..color = const Color(0xFF3A2418)
+      ..isAntiAlias = false;
+    final light = Paint()
+      ..color = const Color(0xFF765039)
+      ..isAntiAlias = false;
+    canvas.drawRect(const Rect.fromLTWH(8, 22, 32, 8), dark);
+    canvas.drawRect(const Rect.fromLTWH(13, 14, 24, 10), dark);
+    canvas.drawRect(const Rect.fromLTWH(19, 7, 15, 9), dark);
+    canvas.drawRect(const Rect.fromLTWH(21, 9, 8, 4), light);
+    canvas.drawRect(const Rect.fromLTWH(15, 17, 10, 4), light);
   }
 
   @override
@@ -299,21 +477,21 @@ class _UpgradeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          leading: CircleAvatar(
-            backgroundColor: color.withValues(alpha: .16),
-            child: Icon(icon, color: color),
-          ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(text),
-          ),
-          trailing: FilledButton(
-            onPressed: enabled ? onTap : null,
-            child: const Text('Додати'),
-          ),
-        ),
-      );
+    child: ListTile(
+      contentPadding: const EdgeInsets.all(16),
+      leading: CircleAvatar(
+        backgroundColor: color.withValues(alpha: .16),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(text),
+      ),
+      trailing: FilledButton(
+        onPressed: enabled ? onTap : null,
+        child: const Text('Додати'),
+      ),
+    ),
+  );
 }

@@ -53,4 +53,103 @@ void main() {
     expect(output.kcalPer100, 431);
     expect(output.verified, isTrue);
   });
+
+  test('AI settings require an HTTPS endpoint and personal token', () {
+    expect(AiSettings().configured, isFalse);
+    expect(
+      AiSettings(
+        endpoint: 'https://script.google.com/macros/s/example/exec',
+        appToken: 'personal-token',
+      ).configured,
+      isTrue,
+    );
+  });
+
+  test('receipt scan preserves line items and label requests', () {
+    final result = ReceiptScanResult.fromJson({
+      'store_name': 'Магазин',
+      'receipt_date': '2026-08-10',
+      'currency': 'UAH',
+      'total': 151.4,
+      'category': 'Продукти',
+      'items': [
+        {
+          'name': 'Йогурт',
+          'quantity': 2,
+          'unit_price': 39.2,
+          'total_price': 78.4,
+          'is_food': true,
+          'estimated_calories': null,
+          'nutrition_status': 'needs_label',
+          'confidence': .91,
+        },
+      ],
+      'needs_label': ['Йогурт'],
+      'note': 'Калорійність на чеку відсутня.',
+      'confidence': .88,
+    });
+
+    expect(result.total, 151.4);
+    expect(result.items.single.name, 'Йогурт');
+    expect(result.items.single.estimatedCalories, isNull);
+    expect(result.needsLabel, ['Йогурт']);
+  });
+
+  test('label scan accepts nullable nutrition fields without guessing', () {
+    final result = LabelScanResult.fromJson({
+      'name': 'Гранола',
+      'brand': 'Тест',
+      'variant': '',
+      'barcode': '',
+      'package_grams': 300,
+      'kcal_per_100': 412,
+      'protein_per_100': null,
+      'fat_per_100': null,
+      'carbs_per_100': null,
+      'source_text': 'Енергетична цінність 412 ккал / 100 г',
+      'missing_fields': ['Білки', 'Жири', 'Вуглеводи'],
+      'note': '',
+      'confidence': .96,
+    });
+
+    expect(result.hasNutrition, isTrue);
+    expect(result.kcalPer100, 412);
+    expect(result.proteinPer100, isNull);
+    expect(result.missingFields, hasLength(3));
+  });
+
+  test('assistant response exposes only confirmable actions', () {
+    final reply = AssistantReply.fromJson({
+      'message': 'Можу додати яблуко після твого підтвердження.',
+      'actions': [
+        {
+          'kind': 'food',
+          'title': 'Додати перекус',
+          'name': 'Яблуко',
+          'category': '',
+          'amount': null,
+          'calories': 80,
+          'protein': 0.4,
+          'fat': 0.2,
+          'carbs': 21,
+        },
+        {
+          'kind': 'none',
+          'title': '',
+          'name': '',
+          'category': '',
+          'amount': null,
+          'calories': null,
+          'protein': null,
+          'fat': null,
+          'carbs': null,
+        },
+      ],
+      'quick_replies': ['Так, додай'],
+    });
+
+    expect(reply.actions, hasLength(1));
+    expect(reply.actions.single.kind, 'food');
+    expect(reply.actions.single.calories, 80);
+  });
 }
