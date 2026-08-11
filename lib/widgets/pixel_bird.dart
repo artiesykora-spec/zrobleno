@@ -35,20 +35,47 @@ class PixelBird extends StatelessWidget {
 }
 
 class PixelWolf extends StatelessWidget {
-  const PixelWolf({this.size = 116, this.squat = false, super.key});
+  const PixelWolf({
+    this.size = 116,
+    this.squat = false,
+    this.surprised = false,
+    super.key,
+  });
 
   final double size;
   final bool squat;
+  final bool surprised;
 
   @override
   Widget build(BuildContext context) => PixelSpriteAtlas(
-    asset: 'assets/game/wolf-atlas.png',
-    columns: 3,
-    rows: 2,
-    frameSequence: squat ? const [3, 4, 4, 3] : const [0, 1, 2, 1],
-    framesPerSecond: squat ? 2 : 8,
-    size: Size(size, size * .72),
-  );
+        asset: 'assets/game/klaksa-atlas-v2.png',
+        columns: 4,
+        rows: 2,
+        frameSequence: surprised
+            ? const [3]
+            : squat
+                ? const [4, 5, 5, 4]
+                : const [1, 2, 1, 7],
+        framesPerSecond: surprised ? 1 : (squat ? 2 : 7),
+        size: Size.square(size),
+      );
+}
+
+class PixelFeeder extends StatelessWidget {
+  const PixelFeeder({required this.level, this.size = 160, super.key});
+
+  final int level;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => PixelSpriteAtlas(
+        asset: 'assets/game/feeder-atlas-v2.png',
+        columns: 4,
+        rows: 1,
+        frameSequence: [level.clamp(0, 3).toInt()],
+        framesPerSecond: 1,
+        size: Size(size, size * .86),
+      );
 }
 
 class PixelSpriteAtlas extends StatefulWidget {

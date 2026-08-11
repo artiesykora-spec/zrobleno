@@ -14,8 +14,7 @@ class TasksPage extends StatelessWidget {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: store,
         builder: (context, _) {
-          final tasks = [...store.tasks]
-            ..sort(
+          final tasks = [...store.tasks]..sort(
               (a, b) => a.done == b.done
                   ? b.priority.index.compareTo(a.priority.index)
                   : (a.done ? 1 : -1),
@@ -30,7 +29,19 @@ class TasksPage extends StatelessWidget {
               slivers: [
                 const SliverPadding(
                   padding: EdgeInsets.fromLTRB(20, 22, 20, 10),
-                  sliver: SliverToBoxAdapter(child: GradientTitle('Zrobleno')),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GradientTitle('МОЇ СПРАВИ'),
+                        SizedBox(height: 3),
+                        Text(
+                          'Маленькі квести для великого прогресу',
+                          style: TextStyle(color: Colors.white60, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
@@ -57,45 +68,104 @@ class TasksPage extends StatelessWidget {
                                 child: const Icon(Icons.delete),
                               ),
                               onDismissed: (_) => store.deleteTask(task),
-                              child: Card(
-                                child: ListTile(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 5),
+                                child: PaperPanel(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 11,
+                                    vertical: 9,
+                                  ),
                                   onTap: () => editTask(context, store, task),
-                                  leading: Checkbox(
-                                    value: task.done,
-                                    onChanged: (value) =>
-                                        store.toggleTask(task, value ?? false),
-                                  ),
-                                  title: Text(
-                                    task.title,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      decoration: task.done
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color: task.done ? Colors.white38 : null,
-                                    ),
-                                  ),
-                                  subtitle: Wrap(
-                                    spacing: 8,
+                                  child: Row(
                                     children: [
-                                      Text(task.category),
-                                      if (task.deadline != null)
-                                        Text(
-                                          '• ${DateFormat('dd.MM').format(task.deadline!)}',
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(8),
+                                        onTap: () =>
+                                            store.toggleTask(task, !task.done),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 260,
+                                          ),
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: task.done
+                                                ? gameMint
+                                                : const Color(0xFFF9F3E5),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: gameInk,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: task.done
+                                              ? const Icon(
+                                                  Icons.star_rounded,
+                                                  color: gameInk,
+                                                )
+                                              : null,
                                         ),
+                                      ),
+                                      const SizedBox(width: 11),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              task.title,
+                                              style: TextStyle(
+                                                color: gameInk,
+                                                fontWeight: FontWeight.w900,
+                                                decoration: task.done
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Wrap(
+                                              spacing: 7,
+                                              children: [
+                                                Text(
+                                                  task.category,
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF766A69),
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                                if (task.deadline != null)
+                                                  Text(
+                                                    '• ${DateFormat('dd.MM').format(task.deadline!)}',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF766A69),
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 12,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: [
+                                            const Color(0xFF80A9D7),
+                                            orange,
+                                            gameCoral,
+                                          ][task.priority.index],
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                          border: Border.all(
+                                            color: gameInk,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                      ),
                                     ],
-                                  ),
-                                  trailing: Container(
-                                    width: 9,
-                                    height: 9,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: [
-                                        Colors.blue,
-                                        orange,
-                                        Colors.redAccent,
-                                      ][task.priority.index],
-                                    ),
                                   ),
                                 ),
                               ),
@@ -114,21 +184,28 @@ class _Empty extends StatelessWidget {
   const _Empty();
 
   @override
-  Widget build(BuildContext context) => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.task_alt, size: 64, color: green),
-            SizedBox(height: 16),
-            Text(
-              'Усе зроблено!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Додайте перше завдання',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ],
+  Widget build(BuildContext context) => Center(
+        child: PaperPanel(
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.celebration_rounded, size: 58, color: gameMint),
+              SizedBox(height: 12),
+              Text(
+                'УСЕ ЗРОБЛЕНО!',
+                style: TextStyle(
+                  color: gameInk,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Додай новий маленький квест',
+                style: TextStyle(color: Color(0xFF766A69), fontSize: 10),
+              ),
+            ],
+          ),
         ),
       );
 }
