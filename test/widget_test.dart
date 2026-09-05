@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -15,9 +16,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('ZROBLENO'), findsOneWidget);
-    expect(find.text('СВІТ СИНИЧКИ'), findsOneWidget);
-    expect(find.text('ЩОДЕННІ ПРИГОДИ'), findsOneWidget);
+    expect(find.text('СТАРИЙ САД'), findsOneWidget);
+    expect(find.text('СЬОГОДНІШНІЙ ПОХІД'), findsOneWidget);
+    expect(find.text('РИТУАЛИ СТАРОГО САДУ'), findsOneWidget);
     expect(find.text('Випити ранкові таблетки'), findsOneWidget);
     expect(find.text('Випити вечірні таблетки'), findsOneWidget);
+    expect(find.text('25 хвилин спокійного фокусу'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('ЕКСПЕДИЦІЯ НА СЬОГОДНІ'), findsOneWidget);
+    expect(find.text('СКАРБ ДНЯ'), findsOneWidget);
   });
 }

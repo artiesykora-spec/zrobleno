@@ -1,363 +1,254 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../app_store.dart';
 import '../theme.dart';
 import '../widgets/pixel_bird.dart';
+import '../widgets/rpg_garden_view.dart';
 
-class WorldPage extends StatelessWidget {
+class WorldPage extends StatefulWidget {
   const WorldPage({required this.store, super.key});
 
   final AppStore store;
 
   @override
+  State<WorldPage> createState() => _WorldPageState();
+}
+
+class _WorldPageState extends State<WorldPage> {
+  final _garden = RpgGardenController();
+  bool _birdMoved = false;
+  bool _feederFound = false;
+
+  int _feederFrame() =>
+      (((widget.store.game.nestLevel - 1).clamp(0, 4) * 3) / 4).round();
+
+  @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: store,
-        builder: (context, _) => Scaffold(
-          appBar: AppBar(
-            title: const Text('СВІТ СИНИЧКИ'),
-            backgroundColor: gamePlum,
-            foregroundColor: const Color(0xFFFFE58D),
-          ),
-          body: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF304957), Color(0xFF1A1A2C)],
+    animation: widget.store,
+    builder: (context, _) {
+      final store = widget.store;
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('СТАРИЙ САД'),
+          backgroundColor: gamePlum,
+          foregroundColor: const Color(0xFFFFE58D),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: _HudPill(
+                  icon: Icons.grain_rounded,
+                  label: '${store.game.seeds}',
+                  color: sunYellow,
+                ),
               ),
             ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
-              children: [
-                _WorldScene(store: store),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _WorldStat(
-                        icon: Icons.grain_rounded,
-                        text: '${store.game.seeds} зерняток',
-                        color: sunYellow,
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _WorldStat(
-                        icon: Icons.auto_awesome_rounded,
-                        text: 'Рівень ${store.game.birdStage + 1}',
-                        color: purple,
-                      ),
-                    ),
-                  ],
-                ),
+          ],
+        ),
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF304957), Color(0xFF17182B)],
+            ),
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+            children: [
+              _GardenScene(
+                store: store,
+                controller: _garden,
+                feederLevel: _feederFrame(),
+                birdMoved: _birdMoved,
+                feederFound: _feederFound,
+                onFirstMove: () => setState(() => _birdMoved = true),
+                onFeederTap: () {
+                  setState(() => _feederFound = true);
+                  _garden.celebrate();
+                },
+              ),
+              const SizedBox(height: 15),
+              _WorldStats(store: store),
+              if (store.game.wolfMess) ...[
                 const SizedBox(height: 14),
-                _UpgradeCard(
-                  icon: Icons.cottage_rounded,
-                  color: sunYellow,
-                  title: 'Годівничка · ${store.game.nestLevel}/5',
-                  text: store.game.nestLevel >= 5
-                      ? 'Вона вже максимально затишна й чарівна.'
-                      : 'Наступна деталь коштує ${store.nestUpgradeCost()} зерняток.',
-                  enabled: store.game.nestLevel < 5 &&
-                      store.game.seeds >= store.nestUpgradeCost(),
-                  onTap: store.upgradeNest,
-                ),
-                const SizedBox(height: 10),
-                _UpgradeCard(
-                  icon: Icons.local_florist_rounded,
-                  color: gameMint,
-                  title: 'Садочок · ${store.game.gardenLevel}/5',
-                  text: store.game.gardenLevel >= 5
-                      ? 'Садочок розквітнув повністю.'
-                      : 'Посадити квітку за ${store.gardenUpgradeCost()} зерняток.',
-                  enabled: store.game.gardenLevel < 5 &&
-                      store.game.seeds >= store.gardenUpgradeCost(),
-                  onTap: store.upgradeGarden,
-                ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 16, 12, 0),
-                  child: Text(
-                    'Тут немає покарань: Клякса лише інколи прибігає пожартувати. Увесь прогрес зберігається.',
-                    style: TextStyle(color: Colors.white60, fontSize: 10),
-                    textAlign: TextAlign.center,
-                  ),
+                _KlaksaEncounter(
+                  onClean: () {
+                    store.cleanWolfMess();
+                    _garden.celebrate();
+                  },
                 ),
               ],
-            ),
+              const SizedBox(height: 14),
+              _ChapterMap(store: store),
+              const SizedBox(height: 14),
+              _UpgradeCard(
+                icon: Icons.cottage_rounded,
+                color: sunYellow,
+                title: 'Годівничка · ${store.game.nestLevel}/5',
+                text: store.game.nestLevel >= 5
+                    ? 'Максимальний рівень: теплий дім Старого саду.'
+                    : 'Нова видима деталь коштує ${store.nestUpgradeCost()} зерняток.',
+                button: 'БУДУВАТИ',
+                enabled:
+                    store.game.nestLevel < 5 &&
+                    store.game.seeds >= store.nestUpgradeCost(),
+                onTap: store.upgradeNest,
+              ),
+              const SizedBox(height: 10),
+              _UpgradeCard(
+                icon: Icons.auto_awesome_rounded,
+                color: gameMint,
+                title: 'Магія саду · ${store.game.gardenLevel}/5',
+                text: store.game.gardenLevel >= 5
+                    ? 'Локація повністю пробуджена.'
+                    : 'Пробудити наступний ефект за ${store.gardenUpgradeCost()} зерняток.',
+                button: 'ПРОБУДИТИ',
+                enabled:
+                    store.game.gardenLevel < 5 &&
+                    store.game.seeds >= store.gardenUpgradeCost(),
+                onTap: () {
+                  if (store.upgradeGarden()) _garden.celebrate();
+                },
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(12, 17, 12, 0),
+                child: Text(
+                  'Тут немає покарань. Клякса створює пригоди, але не забирає прогрес.',
+                  style: TextStyle(color: Colors.white60, fontSize: 9.5),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
         ),
       );
+    },
+  );
 }
 
-class _WorldStat extends StatelessWidget {
-  const _WorldStat({
-    required this.icon,
-    required this.text,
-    required this.color,
+class _GardenScene extends StatelessWidget {
+  const _GardenScene({
+    required this.store,
+    required this.controller,
+    required this.feederLevel,
+    required this.birdMoved,
+    required this.feederFound,
+    required this.onFirstMove,
+    required this.onFeederTap,
   });
 
-  final IconData icon;
-  final String text;
-  final Color color;
+  final AppStore store;
+  final RpgGardenController controller;
+  final int feederLevel;
+  final bool birdMoved;
+  final bool feederFound;
+  final VoidCallback onFirstMove;
+  final VoidCallback onFeederTap;
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: gameInk, width: 2),
-          boxShadow: const [
-            BoxShadow(color: Color(0x77211B2B), offset: Offset(0, 4)),
-          ],
+    height: 500,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: gameInk, width: 2),
+      boxShadow: const [
+        BoxShadow(color: Color(0x99000000), offset: Offset(0, 7)),
+      ],
+    ),
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        RpgGardenView(
+          feederLevel: feederLevel,
+          controller: controller,
+          onFirstMove: onFirstMove,
+          onFeederTap: onFeederTap,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: gameInk, size: 19),
-            const SizedBox(width: 7),
-            Text(
-              text,
-              style: const TextStyle(
-                color: gameInk,
-                fontWeight: FontWeight.w900,
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.center,
+                colors: [Color(0x80112033), Colors.transparent],
               ),
             ),
-          ],
+          ),
         ),
-      );
+        const Positioned(left: 12, top: 12, child: _LocationPlate()),
+        Positioned(
+          right: 11,
+          top: 12,
+          child: _HudPill(
+            icon: Icons.auto_awesome_rounded,
+            label: 'LVL ${store.game.birdStage + 1}',
+            color: purple,
+          ),
+        ),
+        Positioned(
+          left: 12,
+          top: 66,
+          width: 196,
+          child: _SpeechBubble(message: store.assistantMessage),
+        ),
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: 12,
+          child: IgnorePointer(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _SceneHint(
+                key: ValueKey((birdMoved, feederFound)),
+                text: feederFound
+                    ? 'Годівничка відгукнулася. Синичка радіє!'
+                    : birdMoved
+                    ? 'Чудово! Тепер торкнись годівнички.'
+                    : 'Торкнись стежки або гілки — Синичка підійде.',
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
-class _WorldScene extends StatefulWidget {
-  const _WorldScene({required this.store});
-
-  final AppStore store;
-
-  @override
-  State<_WorldScene> createState() => _WorldSceneState();
-}
-
-class _WorldSceneState extends State<_WorldScene>
-    with TickerProviderStateMixin {
-  late final AnimationController ambience;
-  late final AnimationController wolf;
-  late final AnimationController celebration;
-  late bool lastMess;
-  late int lastNestLevel;
-  late int lastGardenLevel;
-
-  @override
-  void initState() {
-    super.initState();
-    ambience = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
-    )..repeat();
-    wolf = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 4700),
-    );
-    celebration = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    );
-    lastMess = widget.store.game.wolfMess;
-    lastNestLevel = widget.store.game.nestLevel;
-    lastGardenLevel = widget.store.game.gardenLevel;
-    if (lastMess) wolf.forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant _WorldScene oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final hasMess = widget.store.game.wolfMess;
-    if (hasMess && !lastMess) {
-      wolf
-        ..reset()
-        ..forward();
-    } else if (!hasMess && lastMess) {
-      wolf.reset();
-    }
-    if (widget.store.game.nestLevel != lastNestLevel ||
-        widget.store.game.gardenLevel != lastGardenLevel) {
-      celebration
-        ..reset()
-        ..forward();
-      lastNestLevel = widget.store.game.nestLevel;
-      lastGardenLevel = widget.store.game.gardenLevel;
-    }
-    lastMess = hasMess;
-  }
-
-  @override
-  void dispose() {
-    ambience.dispose();
-    wolf.dispose();
-    celebration.dispose();
-    super.dispose();
-  }
+class _LocationPlate extends StatelessWidget {
+  const _LocationPlate();
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 450,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF171323), width: 2),
-          boxShadow: const [
-            BoxShadow(color: Color(0x99000000), offset: Offset(0, 7)),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([ambience, wolf, celebration]),
-          builder: (context, _) => LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final breeze = math.sin(ambience.value * math.pi * 2);
-              final party = celebration.value;
-              final birdJump =
-                  party == 0 ? breeze * 3 : -math.sin(party * math.pi) * 52;
-              final birdTurn = party == 0
-                  ? 0.0
-                  : Curves.easeInOut.transform((party / .72).clamp(0, 1)) *
-                      math.pi *
-                      2;
-
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Transform.scale(
-                    scale: 1.02,
-                    child: Transform.translate(
-                      offset: Offset(breeze * 1.5, 0),
-                      child: Image.asset(
-                        'assets/game/world-background.png',
-                        fit: BoxFit.cover,
-                        alignment: const Alignment(.15, .1),
-                        filterQuality: FilterQuality.none,
-                      ),
-                    ),
-                  ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0x11000000),
-                          Colors.transparent,
-                          Color(0x44000000),
-                        ],
-                      ),
-                    ),
-                  ),
-                  CustomPaint(
-                    painter: _WorldDetailsPainter(
-                      progress: ambience.value,
-                      gardenLevel: widget.store.game.gardenLevel,
-                    ),
-                  ),
-                  Positioned(
-                    left: 12,
-                    top: 12,
-                    width: math.min(width * .72, 255.0),
-                    child:
-                        _SpeechBubble(message: widget.store.assistantMessage),
-                  ),
-                  Positioned(
-                    right: -7,
-                    top: 171,
-                    child: PixelFeeder(
-                      level: widget.store.game.nestLevel,
-                      size: 192,
-                    ),
-                  ),
-                  Positioned(
-                    left: 24,
-                    top: 185 + birdJump,
-                    child: Transform.rotate(
-                      angle: birdTurn,
-                      child: PixelBird(
-                        stage: widget.store.game.birdStage,
-                        size: 150,
-                        playful: true,
-                      ),
-                    ),
-                  ),
-                  if (party > 0)
-                    IgnorePointer(
-                      child: CustomPaint(
-                        painter: _CelebrationPainter(progress: party),
-                      ),
-                    ),
-                  if (widget.store.game.wolfMess) _buildWolf(width),
-                  if (widget.store.game.wolfMess && wolf.value >= .53)
-                    Positioned(
-                      left: width * .48,
-                      bottom: 22,
-                      child: Semantics(
-                        button: true,
-                        label: 'Прибрати жарт Клякси',
-                        child: GestureDetector(
-                          onTap: widget.store.cleanWolfMess,
-                          child: const _PixelMess(),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    left: 10,
-                    bottom: 9,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xCC3D315D),
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: sunYellow),
-                      ),
-                      child: Text(
-                        party > 0 ? 'УРА! НОВА НАГОРОДА!' : 'живий світ',
-                        style: const TextStyle(
-                          color: Color(0xFFFFE58D),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: const Color(0xE63D315D),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: sunYellow, width: 1.5),
+    ),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'ЛОКАЦІЯ 01',
+          style: TextStyle(
+            color: gameMint,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
           ),
         ),
-      );
-
-  Widget _buildWolf(double width) {
-    final value = wolf.value;
-    final double x;
-    final bool squat;
-    if (value < .44) {
-      x = -120 + (width * .55 + 120) * Curves.easeOut.transform(value / .44);
-      squat = false;
-    } else if (value < .7) {
-      x = width * .55;
-      squat = value > .51;
-    } else {
-      x = width * .55 +
-          (width + 135 - width * .55) *
-              Curves.easeIn.transform((value - .7) / .3);
-      squat = false;
-    }
-    return Positioned(
-      left: x,
-      bottom: 2 + math.sin(value * math.pi * 16).abs() * (squat ? 0 : 6),
-      child: PixelWolf(size: 116, squat: squat),
-    );
-  }
+        Text(
+          'СТАРИЙ САД',
+          style: TextStyle(
+            color: Color(0xFFFFE58D),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SpeechBubble extends StatelessWidget {
@@ -366,196 +257,307 @@ class _SpeechBubble extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: gamePaper.withValues(alpha: .95),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: gameInk, width: 2),
-          boxShadow: const [
-            BoxShadow(color: Color(0x55342B38), offset: Offset(2, 3)),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: gamePaper.withValues(alpha: .94),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: gameInk, width: 1.5),
+      boxShadow: const [
+        BoxShadow(color: Color(0x55342B38), offset: Offset(2, 3)),
+      ],
+    ),
+    child: Text(
+      message,
+      maxLines: 4,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: gameInk, fontSize: 9.5, height: 1.35),
+    ),
+  );
+}
+
+class _SceneHint extends StatelessWidget {
+  const _SceneHint({required this.text, super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xDF332A4C),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: gameMint, width: 1.5),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.touch_app_rounded, color: gameMint, size: 17),
+        const SizedBox(width: 7),
+        Expanded(
           child: Text(
-            message,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
+            text,
             style: const TextStyle(
-              color: gameInk,
-              fontSize: 11,
-              height: 1.35,
+              color: Colors.white,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
-class _WorldDetailsPainter extends CustomPainter {
-  const _WorldDetailsPainter({
-    required this.progress,
-    required this.gardenLevel,
+class _HudPill extends StatelessWidget {
+  const _HudPill({
+    required this.icon,
+    required this.label,
+    required this.color,
   });
 
-  final double progress;
-  final int gardenLevel;
+  final IconData icon;
+  final String label;
+  final Color color;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final pixel = math.max(2.0, size.width / 180);
-    final sway = math.sin(progress * math.pi * 2) * pixel;
-
-    void block(Color color, double x, double y, double w, double h) {
-      canvas.drawRect(
-        Rect.fromLTWH(x, y, w, h),
-        Paint()
-          ..color = color
-          ..isAntiAlias = false,
-      );
-    }
-
-    final flowerColors = [
-      sunYellow,
-      gameCoral,
-      purple,
-      gameMint,
-      const Color(0xFFFFE9F2),
-    ];
-    for (var index = 0; index < gardenLevel; index++) {
-      final x = size.width * (.10 + index * .075);
-      final base = size.height * .86;
-      block(const Color(0xFF2D7C4C), x, base - 24, pixel * 1.5, 25);
-      block(
-        flowerColors[index % flowerColors.length],
-        x - pixel * 1.5 + sway * (index.isEven ? 1 : -1),
-        base - 31 - index % 2 * 5,
-        pixel * 4.5,
-        pixel * 4.5,
-      );
-      block(
-        const Color(0xFFF8C947),
-        x + sway * (index.isEven ? 1 : -1),
-        base - 29 - index % 2 * 5,
-        pixel * 1.5,
-        pixel * 1.5,
-      );
-    }
-
-    final firefly = Paint();
-    for (var i = 0; i < 9; i++) {
-      final phase = progress * math.pi * 2 + i * .83;
-      final x = size.width * (.08 + (i * .113) % .84) + math.sin(phase) * 7;
-      final y = size.height * (.26 + (i * .17) % .57) + math.cos(phase) * 6;
-      final opacity = (.25 + (math.sin(phase) + 1) * .34).clamp(0.0, 1.0);
-      firefly.color = sunYellow.withValues(alpha: opacity.toDouble());
-      canvas.drawRect(Rect.fromLTWH(x, y, pixel * 1.5, pixel * 1.5), firefly);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WorldDetailsPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.gardenLevel != gardenLevel;
-}
-
-class _CelebrationPainter extends CustomPainter {
-  const _CelebrationPainter({required this.progress});
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final random = math.Random(7);
-    const colors = [sunYellow, gameCoral, gameMint, purple, Colors.white];
-    for (var i = 0; i < 24; i++) {
-      final startX = random.nextDouble() * size.width;
-      final speed = .65 + random.nextDouble() * .9;
-      final y = -20 + progress * size.height * speed;
-      final x = startX + math.sin(progress * 9 + i) * 15;
-      final side = 3.0 + random.nextInt(5);
-      canvas.drawRect(
-        Rect.fromLTWH(x, y, side, side * 1.6),
-        Paint()
-          ..color = colors[i % colors.length]
-          ..isAntiAlias = false,
-      );
-    }
-
-    final burst = (1 - (progress - .36).abs() / .34).clamp(0.0, 1.0);
-    if (burst <= 0) return;
-    final center = Offset(size.width * .68, size.height * .18);
-    final paint = Paint()
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.square;
-    for (var i = 0; i < 12; i++) {
-      final angle = i * math.pi * 2 / 12;
-      final inner = 18 + burst * 8;
-      final outer = 28 + burst * 31;
-      paint.color = colors[i % colors.length].withValues(alpha: burst);
-      canvas.drawLine(
-        center + Offset(math.cos(angle) * inner, math.sin(angle) * inner),
-        center + Offset(math.cos(angle) * outer, math.sin(angle) * outer),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _CelebrationPainter oldDelegate) =>
-      oldDelegate.progress != progress;
-}
-
-class _PixelMess extends StatelessWidget {
-  const _PixelMess();
-
-  @override
-  Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 48,
-            height: 34,
-            child: CustomPaint(painter: _MessPainter()),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: gameInk, width: 1.5),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: gameInk, size: 15),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: gameInk,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
           ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xDD3D315D),
-              borderRadius: BorderRadius.all(Radius.circular(7)),
+        ),
+      ],
+    ),
+  );
+}
+
+class _WorldStats extends StatelessWidget {
+  const _WorldStats({required this.store});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: _WorldStat(
+          icon: Icons.grain_rounded,
+          value: '${store.game.seeds}',
+          label: 'зерняток',
+          color: sunYellow,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _WorldStat(
+          icon: Icons.auto_awesome_rounded,
+          value: '${store.game.xp}',
+          label: 'досвіду',
+          color: purple,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _WorldStat(
+          icon: Icons.map_rounded,
+          value: '1',
+          label: 'локація',
+          color: gameMint,
+        ),
+      ),
+    ],
+  );
+}
+
+class _WorldStat extends StatelessWidget {
+  const _WorldStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 69,
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: gameInk, width: 2),
+      boxShadow: const [
+        BoxShadow(color: Color(0x77211B2B), offset: Offset(0, 4)),
+      ],
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: gameInk, size: 17),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                color: gameInk,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              child: Text(
-                'ПРИБРАТИ',
+          ],
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: gameInk,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _KlaksaEncounter extends StatelessWidget {
+  const _KlaksaEncounter({required this.onClean});
+
+  final VoidCallback onClean;
+
+  @override
+  Widget build(BuildContext context) => PaperPanel(
+    color: const Color(0xFFE8D5B2),
+    padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
+    child: Row(
+      children: [
+        const PixelWolf(size: 102, squat: true),
+        const SizedBox(width: 3),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'МІНІБОС: КЛЯКСА',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
+                  color: gameInk,
+                  fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-            ),
+              SizedBox(height: 4),
+              Text(
+                'Знайди її слід, прибери жарт і поверни спокій у сад.',
+                style: TextStyle(
+                  color: Color(0xFF746363),
+                  fontSize: 9.5,
+                  height: 1.3,
+                ),
+              ),
+            ],
           ),
-        ],
-      );
+        ),
+        FilledButton(
+          onPressed: onClean,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(68, 42),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          child: const Text('ПРИБРАТИ', style: TextStyle(fontSize: 8)),
+        ),
+      ],
+    ),
+  );
 }
 
-class _MessPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final dark = Paint()
-      ..color = const Color(0xFF3A2418)
-      ..isAntiAlias = false;
-    final light = Paint()
-      ..color = const Color(0xFF765039)
-      ..isAntiAlias = false;
-    canvas.drawRect(const Rect.fromLTWH(8, 22, 32, 8), dark);
-    canvas.drawRect(const Rect.fromLTWH(13, 14, 24, 10), dark);
-    canvas.drawRect(const Rect.fromLTWH(19, 7, 15, 9), dark);
-    canvas.drawRect(const Rect.fromLTWH(21, 9, 8, 4), light);
-    canvas.drawRect(const Rect.fromLTWH(15, 17, 10, 4), light);
-  }
+class _ChapterMap extends StatelessWidget {
+  const _ChapterMap({required this.store});
+
+  final AppStore store;
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    final unlocked = 1 + store.game.birdStage;
+    return PaperPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'МАПА ПРИГОДИ',
+            style: TextStyle(
+              color: gameInk,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Перший вертикальний зріз RPG. Наступні локації відкриються з розвитком Синички.',
+            style: TextStyle(
+              color: Color(0xFF766A69),
+              fontSize: 9,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: List.generate(4, (index) {
+              final available = index < unlocked;
+              final labels = ['Сад', 'Галявина', 'Озеро', 'Вежа'];
+              return Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 43,
+                      height: 43,
+                      decoration: BoxDecoration(
+                        color: available ? gameMint : gamePaperShadow,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: gameInk, width: 2),
+                      ),
+                      child: Icon(
+                        available ? Icons.flag_rounded : Icons.lock_rounded,
+                        color: gameInk,
+                        size: 21,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      labels[index],
+                      style: const TextStyle(
+                        color: gameInk,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _UpgradeCard extends StatelessWidget {
@@ -564,6 +566,7 @@ class _UpgradeCard extends StatelessWidget {
     required this.color,
     required this.title,
     required this.text,
+    required this.button,
     required this.enabled,
     required this.onTap,
   });
@@ -572,57 +575,58 @@ class _UpgradeCard extends StatelessWidget {
   final Color color;
   final String title;
   final String text;
+  final String button;
   final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => PaperPanel(
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: gameInk, width: 2),
-              ),
-              child: Icon(icon, color: gameInk),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: gameInk,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    text,
-                    style: const TextStyle(
-                      color: Color(0xFF766A69),
-                      fontSize: 10,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: enabled ? onTap : null,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(44, 42),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-              ),
-              child: const Text('ДОДАТИ', style: TextStyle(fontSize: 9)),
-            ),
-          ],
+    child: Row(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: gameInk, width: 2),
+          ),
+          child: Icon(icon, color: gameInk),
         ),
-      );
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: gameInk,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                text,
+                style: const TextStyle(
+                  color: Color(0xFF766A69),
+                  fontSize: 9,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: enabled ? onTap : null,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(64, 42),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          child: Text(button, style: const TextStyle(fontSize: 7.5)),
+        ),
+      ],
+    ),
+  );
 }

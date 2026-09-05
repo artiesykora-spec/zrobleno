@@ -1,0 +1,43 @@
+{
+  "world": {
+    "asset": "assets/game/rpg/old-garden.webp",
+    "logicalSize": [390, 540],
+    "perchPoint": [213, 274],
+    "feederPoint": [318, 262]
+  },
+  "bird": {
+    "asset": "assets/game/rpg/bird-atlas.webp",
+    "columns": 4,
+    "rows": 2,
+    "frameSize": [222, 222],
+    "anchor": "bottomCenter",
+    "states": {
+      "idle": [0, 1, 0, 2],
+      "look": [0, 1, 3, 1],
+      "hop": [4, 5, 7],
+      "happy": [6, 5, 7]
+    }
+  },
+  "klaksa": {
+    "asset": "assets/game/rpg/klaksa-atlas.webp",
+    "columns": 4,
+    "rows": 2,
+    "frameSize": [222, 222],
+    "anchor": "bottomCenter",
+    "states": {
+      "idle": [0],
+      "run": [1, 2],
+      "surprised": [3],
+      "mischief": [4, 5, 6],
+      "escape": [7, 2, 1]
+    }
+  },
+  "feeder": {
+    "asset": "assets/game/rpg/feeder-atlas.webp",
+    "columns": 2,
+    "rows": 2,
+    "frameSize": [314, 314],
+    "anchor": "center",
+    "levels": [0, 1, 2, 3]
+  }
+}

@@ -21,6 +21,7 @@ class AppStore extends ChangeNotifier {
   AiSettings aiSettings = AiSettings();
   GameState game = GameState();
   Set<String> rewardedActions = {};
+  Set<String> dailyQuestDone = {};
   bool morningMedicine = false;
   bool eveningMedicine = false;
   String medicineDay = '';
@@ -45,6 +46,8 @@ class AppStore extends ChangeNotifier {
       )
       ..game = GameState.fromJson(decodeObject(prefs.getString('game')))
       ..rewardedActions = (prefs.getStringList('rewardedActions') ?? <String>[])
+          .toSet()
+      ..dailyQuestDone = (prefs.getStringList('dailyQuestDone') ?? <String>[])
           .toSet()
       ..medicineDay = prefs.getString('medicineDay') ?? ''
       ..dailyCalorieGoal = prefs.getInt('dailyCalorieGoal') ?? 1850
@@ -162,6 +165,7 @@ class AppStore extends ChangeNotifier {
       _prefs.setString('aiSettings', jsonEncode(aiSettings.toJson())),
       _prefs.setString('game', jsonEncode(game.toJson())),
       _prefs.setStringList('rewardedActions', rewardedActions.toList()),
+      _prefs.setStringList('dailyQuestDone', dailyQuestDone.toList()),
       _prefs.setString('medicineDay', medicineDay),
       _prefs.setInt('dailyCalorieGoal', dailyCalorieGoal),
       _prefs.setBool('morningMedicine', morningMedicine),
@@ -214,6 +218,40 @@ class AppStore extends ChangeNotifier {
         xp: 6,
       );
     }
+    changed();
+  }
+
+  String _dailyQuestKey(String questId) => '$todayKey:$questId';
+
+  bool isDailyQuestDone(String questId) =>
+      dailyQuestDone.contains(_dailyQuestKey(questId));
+
+  bool get dailyChestClaimed =>
+      rewardedActions.contains('daily-chest:$todayKey');
+
+  void toggleDailyQuest(
+    String questId,
+    bool value, {
+    int seeds = 2,
+    int xp = 4,
+  }) {
+    final key = _dailyQuestKey(questId);
+    if (value) {
+      dailyQuestDone.add(key);
+      _reward('daily:$key', seeds: seeds, xp: xp);
+    } else {
+      dailyQuestDone.remove(key);
+    }
+    changed();
+  }
+
+  void triggerKlaksa() {
+    game.wolfMess = true;
+    changed();
+  }
+
+  void claimDailyChest() {
+    _reward('daily-chest:$todayKey', seeds: 10, xp: 18);
     changed();
   }
 

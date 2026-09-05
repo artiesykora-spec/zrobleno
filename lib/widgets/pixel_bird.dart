@@ -21,7 +21,7 @@ class PixelBird extends StatelessWidget {
     return Transform.scale(
       scale: growth,
       child: PixelSpriteAtlas(
-        asset: 'assets/game/bird-atlas.png',
+        asset: 'assets/game/rpg/bird-atlas.webp',
         columns: 4,
         rows: 2,
         frameSequence: playful
@@ -48,17 +48,17 @@ class PixelWolf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PixelSpriteAtlas(
-        asset: 'assets/game/klaksa-atlas-v2.png',
-        columns: 4,
-        rows: 2,
-        frameSequence: surprised
-            ? const [3]
-            : squat
-                ? const [4, 5, 5, 4]
-                : const [1, 2, 1, 7],
-        framesPerSecond: surprised ? 1 : (squat ? 2 : 7),
-        size: Size.square(size),
-      );
+        asset: 'assets/game/rpg/klaksa-atlas.webp',
+    columns: 4,
+    rows: 2,
+    frameSequence: surprised
+        ? const [3]
+        : squat
+        ? const [4, 5, 5, 4]
+        : const [1, 2, 1, 7],
+    framesPerSecond: surprised ? 1 : (squat ? 2 : 7),
+    size: Size.square(size),
+  );
 }
 
 class PixelFeeder extends StatelessWidget {
@@ -69,13 +69,13 @@ class PixelFeeder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PixelSpriteAtlas(
-        asset: 'assets/game/feeder-atlas-v2.png',
-        columns: 4,
-        rows: 1,
-        frameSequence: [level.clamp(0, 3).toInt()],
-        framesPerSecond: 1,
-        size: Size(size, size * .86),
-      );
+        asset: 'assets/game/rpg/feeder-atlas.webp',
+    columns: 2,
+    rows: 2,
+    frameSequence: [(level - 1).clamp(0, 3).toInt()],
+    framesPerSecond: 1,
+    size: Size(size, size * .86),
+  );
 }
 
 class PixelSpriteAtlas extends StatefulWidget {
