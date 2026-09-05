@@ -5,7 +5,6 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/sprite.dart';
-import 'package:flutter/foundation.dart';
 
 /// The first playable Zrobleno RPG location.
 ///
