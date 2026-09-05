@@ -977,26 +977,29 @@ class _DailyNumbers extends StatelessWidget {
     final expenses = store.expenses
         .where((expense) => store.isToday(expense.date))
         .fold<double>(0, (sum, expense) => sum + expense.amount);
-    return Row(
-      children: [
-        Expanded(
-          child: MetricCard(
-            icon: Icons.local_fire_department_rounded,
-            value: '${store.todayCalories.round()}',
-            label: 'ккал сьогодні',
-            color: const Color(0xFF80A9D7),
+    return SizedBox(
+      height: 126,
+      child: Row(
+        children: [
+          Expanded(
+            child: MetricCard(
+              icon: Icons.local_fire_department_rounded,
+              value: '${store.todayCalories.round()}',
+              label: 'ккал сьогодні',
+              color: const Color(0xFF80A9D7),
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: MetricCard(
-            icon: Icons.savings_rounded,
-            value: '${expenses.toStringAsFixed(0)} ₴',
-            label: 'витрати сьогодні',
-            color: orange,
+          const SizedBox(width: 10),
+          Expanded(
+            child: MetricCard(
+              icon: Icons.savings_rounded,
+              value: '${expenses.toStringAsFixed(0)} ₴',
+              label: 'витрати сьогодні',
+              color: orange,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
