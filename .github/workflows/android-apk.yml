@@ -26,7 +26,7 @@ jobs:
           # This project intentionally uses Groovy Gradle scripts. Flutter may
           # scaffold Kotlin DSL duplicates when completing missing wrapper files.
           rm -f android/settings.gradle.kts android/build.gradle.kts android/app/build.gradle.kts
-          grep -q 'gradle-8.11.1-all.zip' android/gradle/wrapper/gradle-wrapper.properties
+          grep -q 'gradle-8.14-all.zip' android/gradle/wrapper/gradle-wrapper.properties
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
