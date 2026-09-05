@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flame/sprite.dart';
 import 'package:flutter/foundation.dart';
 
 /// The first playable Zrobleno RPG location.
@@ -71,9 +72,9 @@ class OldGardenGame extends FlameGame with TapCallbacks {
   }
 
   @override
-  void onGameResize(Vector2 canvasSize) {
-    super.onGameResize(canvasSize);
-    if (isLoaded) _layout(canvasSize);
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    if (isLoaded) _layout(size);
   }
 
   void _layout(Vector2 canvasSize) {
