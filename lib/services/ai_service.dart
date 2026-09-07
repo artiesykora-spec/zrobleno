@@ -60,17 +60,7 @@ class AiService {
     await _post('sync', {
       'event_type': 'expense',
       'record': expense.toJson(),
-      'receipt': receipt == null
-          ? null
-          : {
-              'store_name': receipt.storeName,
-              'receipt_date': receipt.receiptDate,
-              'currency': receipt.currency,
-              'total': receipt.total,
-              'items': receipt.items.map((item) => item.toJson()).toList(),
-              'needs_label': receipt.needsLabel,
-              'confidence': receipt.confidence,
-            },
+      'receipt': receipt?.toJson(),
     });
   }
 

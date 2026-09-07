@@ -6,7 +6,8 @@ enum AppSound {
   taskComplete('sounds/task_complete.wav'),
   rewardUnlock('sounds/reward_unlock.wav'),
   morningSun('sounds/morning_sun.wav'),
-  softError('sounds/soft_error.wav');
+  softError('sounds/soft_error.wav'),
+  broomSweep('sounds/broom_sweep.wav');
 
   const AppSound(this.assetPath);
 

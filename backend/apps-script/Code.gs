@@ -70,11 +70,18 @@ function analyzeReceipt_(body) {
   const image = imageInput_(body);
   const prompt = [
     'Проаналізуй фото касового чека. Читай лише те, що справді видно.',
-    'Поверни назву магазину, дату, валюту, підсумкову суму та всі товарні позиції.',
-    'Не вигадуй калорійність. Для харчового товару без достатньої інформації постав nutrition_status=needs_label і додай його назву до needs_label.',
-    'estimated_calories дозволено заповнювати лише коли кількість та калорійність прямо видно або це надійний однозначний розрахунок; інакше null.',
+    'Поверни магазин, дату у форматі YYYY-MM-DD, номер чека, спосіб оплати, код/штрихкод чека, валюту, суму та всі товарні позиції.',
+    'raw_name — максимально точний рядок із чека. name — обережно розгорнута людська назва без вигаданих слів або брендів.',
+    'Враховуй скорочення й сусідні рядки. Наприклад, «вермішель шв приг. негос. Куховар Сметана-цибуля 50г» — це вермішель швидкого приготування «Куховар», негостра, сметана-цибуля, 50 г, а не сметана 15%.',
+    'Якщо над позицією надруковано «ШТРИХКОД» і цифри, поверни їх у barcode цієї позиції.',
+    'consumer_type: human_food лише для їжі людини; pet для корму/товарів тварин; non_food для решти. Корм для котів ніколи не є human_food.',
+    'Для кожної позиції визнач expense_category та конкретну subcategory: наприклад Їжа/Локшина швидкого приготування або Домашні тварини/Корм для котів.',
+    'track_nutrition_default=true лише для human_food. Для pet і non_food завжди false, nutrition_source=none, nutrition_status=not_food.',
+    'Для звичайних фруктів, овочів та інших однозначних продуктів дозволено nutrition_source=reference. Для брендованого або неоднозначного продукту без даних — nutrition_source=label і nutrition_status=needs_label.',
+    'До needs_label додавай лише human_food з nutrition_source=label. Ніколи не проси етикетку корму для тварин або побутового товару.',
+    'Не вигадуй калорійність. estimated_calories заповнюй лише коли відома маса придбаної кількості та є надійне значення; інакше null.',
     'Якщо символ або число нечіткі, зменш confidence і поясни це в note.',
-    'Категорія витрати має бути однією з: Продукти, Транспорт, Дім, Здоров’я, Розваги, Інше.',
+    'Загальна category: єдина категорія всіх позицій або «Змішаний чек», якщо категорій кілька.',
   ].join('\n');
   return openAiStructured_(
     prompt,
@@ -110,9 +117,11 @@ function chat_(body) {
   const context = body.context || {};
   const history = Array.isArray(body.history) ? body.history.slice(-12) : [];
   const prompt = [
-    'Ти — Синичка, доброзичлива україномовна помічниця всередині Zrobleno.',
+    'Ти — Синичка, україномовна помічниця всередині Zrobleno для дорослого користувача.',
     'Допомагай із денним планом харчування, калоріями, покупками, витратами та простими справами.',
-    'Не сором, не карай і не моралізуй. Пояснюй коротко, конкретно й по-людськи.',
+    'Спілкуйся як розумний дорослий приятель: прямо, коротко, конкретно, без тону виховательки, сюсюкання, зменшувальних слів і дитсадкових похвал.',
+    'Доречний сухий або трохи чорний гумор дозволений. Не маскуй прості речі евфемізмами: якщо Клякса залишила какашку, так і кажи.',
+    'Не сором, не карай і не моралізуй.',
     'Відрізняй «купив» від «з’їв». Чек не означає, що весь продукт уже з’їдений.',
     'Коли точних даних про продукт немає, прямо скажи, що потрібне фото етикетки або вага порції.',
     'Не давай медичних діагнозів. Для небезпечних симптомів радь звернутися до лікаря.',
@@ -236,6 +245,9 @@ function sync_(body) {
         body.receipt ? numberOrBlank_(body.receipt.total) : '',
         body.receipt ? body.receipt.currency || '' : '',
         body.receipt ? JSON.stringify(body.receipt.needs_label || []) : '',
+        body.receipt ? body.receipt.receipt_number || '' : '',
+        body.receipt ? body.receipt.payment_method || '' : '',
+        body.receipt ? body.receipt.receipt_code || '' : '',
       ]);
       if (body.receipt) {
         deleteRowsById_(spreadsheet, 'ReceiptItems', 2, record.id);
@@ -247,6 +259,7 @@ function sync_(body) {
             now,
             record.id || '',
             item.name || '',
+            item.raw_name || '',
             numberOrBlank_(item.quantity),
             numberOrBlank_(item.unit_price),
             numberOrBlank_(item.total_price),
@@ -254,6 +267,12 @@ function sync_(body) {
             numberOrBlank_(item.estimated_calories),
             item.nutrition_status || '',
             numberOrBlank_(item.confidence),
+            item.consumer_type || '',
+            item.expense_category || '',
+            item.subcategory || '',
+            item.barcode || '',
+            item.track_nutrition_default === true,
+            item.nutrition_source || '',
           ]);
         });
       }
@@ -318,11 +337,14 @@ function setupZroblenoSheets() {
 function ensureSheets_(spreadsheet) {
   ensureSheet_(spreadsheet, 'Expenses', [
     'Synced at', 'ID', 'Date', 'Title', 'Amount', 'Category', 'Receipt path',
-    'Store', 'Receipt total', 'Currency', 'Needs label',
+    'Store', 'Receipt total', 'Currency', 'Needs label', 'Receipt number',
+    'Payment method', 'Receipt code / QR',
   ]);
   ensureSheet_(spreadsheet, 'ReceiptItems', [
-    'Synced at', 'Expense ID', 'Item', 'Quantity', 'Unit price', 'Total price',
-    'Is food', 'Estimated kcal', 'Nutrition status', 'Confidence',
+    'Synced at', 'Expense ID', 'Item', 'Raw receipt text', 'Quantity',
+    'Unit price', 'Total price', 'Is food', 'Estimated kcal',
+    'Nutrition status', 'Confidence', 'Consumer type', 'Expense category',
+    'Subcategory', 'Barcode', 'Track nutrition', 'Nutrition source',
   ]);
   ensureSheet_(spreadsheet, 'Products', [
     'Synced at', 'ID', 'Brand', 'Name', 'Variant', 'Barcode', 'Package g',
@@ -338,9 +360,7 @@ function ensureSheets_(spreadsheet) {
 function ensureSheet_(spreadsheet, name, headers) {
   let sheet = spreadsheet.getSheetByName(name);
   if (!sheet) sheet = spreadsheet.insertSheet(name);
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   return sheet;
 }
 
@@ -384,16 +404,23 @@ function receiptSchema_() {
     additionalProperties: false,
     required: [
       'store_name', 'receipt_date', 'currency', 'total', 'category', 'items',
-      'needs_label', 'note', 'confidence',
+      'needs_label', 'note', 'confidence', 'receipt_number',
+      'payment_method', 'receipt_code',
     ],
     properties: {
       store_name: {type: 'string'},
       receipt_date: {type: ['string', 'null']},
       currency: {type: 'string'},
+      receipt_number: {type: 'string'},
+      payment_method: {type: 'string'},
+      receipt_code: {type: 'string'},
       total: {type: 'number'},
       category: {
         type: 'string',
-        enum: ['Продукти', 'Транспорт', 'Дім', 'Здоров’я', 'Розваги', 'Інше'],
+        enum: [
+          'Їжа', 'Домашні тварини', 'Побут', 'Здоров’я', 'Транспорт',
+          'Одяг', 'Розваги', 'Інше', 'Змішаний чек'
+        ],
       },
       items: {
         type: 'array',
@@ -401,11 +428,14 @@ function receiptSchema_() {
           type: 'object',
           additionalProperties: false,
           required: [
-            'name', 'quantity', 'unit_price', 'total_price', 'is_food',
-            'estimated_calories', 'nutrition_status', 'confidence',
+            'name', 'raw_name', 'quantity', 'unit_price', 'total_price',
+            'is_food', 'estimated_calories', 'nutrition_status', 'confidence',
+            'consumer_type', 'expense_category', 'subcategory', 'barcode',
+            'track_nutrition_default', 'nutrition_source',
           ],
           properties: {
             name: {type: 'string'},
+            raw_name: {type: 'string'},
             quantity: {type: 'number'},
             unit_price: {type: ['number', 'null']},
             total_price: {type: 'number'},
@@ -416,6 +446,24 @@ function receiptSchema_() {
               enum: ['known', 'estimate', 'needs_label', 'not_food'],
             },
             confidence: {type: 'number'},
+            consumer_type: {
+              type: 'string',
+              enum: ['human_food', 'pet', 'non_food'],
+            },
+            expense_category: {
+              type: 'string',
+              enum: [
+                'Їжа', 'Домашні тварини', 'Побут', 'Здоров’я', 'Транспорт',
+                'Одяг', 'Розваги', 'Інше'
+              ],
+            },
+            subcategory: {type: 'string'},
+            barcode: {type: 'string'},
+            track_nutrition_default: {type: 'boolean'},
+            nutrition_source: {
+              type: 'string',
+              enum: ['known', 'reference', 'label', 'none'],
+            },
           },
         },
       },

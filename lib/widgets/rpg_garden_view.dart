@@ -17,6 +17,8 @@ class RpgGardenController {
 
   void setFeederLevel(int level, {bool celebrate = false}) =>
       _game?.setFeederLevel(level, withCelebration: celebrate);
+
+  void setMessVisible(bool visible) => _game?.setMessVisible(visible);
 }
 
 class RpgGardenView extends StatefulWidget {
@@ -26,6 +28,9 @@ class RpgGardenView extends StatefulWidget {
     this.controller,
     this.onFirstMove,
     this.onFeederTap,
+    this.showMess = false,
+    this.onMessSweep,
+    this.onMessCleaned,
     super.key,
   });
 
@@ -34,6 +39,9 @@ class RpgGardenView extends StatefulWidget {
   final RpgGardenController? controller;
   final VoidCallback? onFirstMove;
   final VoidCallback? onFeederTap;
+  final bool showMess;
+  final VoidCallback? onMessSweep;
+  final VoidCallback? onMessCleaned;
 
   @override
   State<RpgGardenView> createState() => _RpgGardenViewState();
@@ -50,6 +58,9 @@ class _RpgGardenViewState extends State<RpgGardenView> {
       initialFeederLevel: widget.feederLevel,
       onFirstMove: widget.onFirstMove,
       onFeederTap: widget.onFeederTap,
+      showMess: widget.showMess,
+      onMessSweep: widget.onMessSweep,
+      onMessCleaned: widget.onMessCleaned,
     );
     widget.controller?._attach(game);
   }
@@ -63,6 +74,9 @@ class _RpgGardenViewState extends State<RpgGardenView> {
     }
     if (oldWidget.feederLevel != widget.feederLevel) {
       game.setFeederLevel(widget.feederLevel, withCelebration: true);
+    }
+    if (oldWidget.showMess != widget.showMess) {
+      game.setMessVisible(widget.showMess);
     }
   }
 

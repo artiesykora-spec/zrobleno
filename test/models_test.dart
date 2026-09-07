@@ -95,6 +95,68 @@ void main() {
     expect(result.needsLabel, ['Йогурт']);
   });
 
+  test('old receipt responses never count pet food as human nutrition', () {
+    final line = ReceiptLine.fromJson({
+      'name': 'Корм д/котів Carpathian Pet Food лосось 100 г',
+      'quantity': 1,
+      'total_price': 13,
+      'is_food': true,
+      'estimated_calories': null,
+      'nutrition_status': 'needs_label',
+      'confidence': .9,
+    });
+
+    expect(line.consumerType, 'pet');
+    expect(line.expenseCategory, 'Домашні тварини');
+    expect(line.trackNutrition, isFalse);
+    expect(line.nutritionSource, 'none');
+  });
+
+  test('detailed receipt fields survive round trip', () {
+    final input = ReceiptScanResult.fromJson({
+      'store_name': 'Вигідна покупка',
+      'receipt_date': '2026-09-07',
+      'receipt_number': '21310011261',
+      'payment_method': 'VISA',
+      'receipt_code': '21310011261',
+      'currency': 'UAH',
+      'total': 52,
+      'category': 'Змішаний чек',
+      'items': [
+        {
+          'raw_name': 'Вермішель шв приг.негос.Куховар Сметана-цибуля 50г',
+          'name':
+              'Вермішель швидкого приготування «Куховар», сметана-цибуля, 50 г',
+          'quantity': 2,
+          'unit_price': 13,
+          'total_price': 26,
+          'is_food': true,
+          'estimated_calories': null,
+          'nutrition_status': 'needs_label',
+          'confidence': .78,
+          'consumer_type': 'human_food',
+          'expense_category': 'Їжа',
+          'subcategory': 'Вермішель швидкого приготування',
+          'barcode': '4820212460227',
+          'track_nutrition_default': true,
+          'nutrition_source': 'label',
+        },
+      ],
+      'needs_label': [
+        'Вермішель швидкого приготування «Куховар», сметана-цибуля, 50 г',
+      ],
+      'note': '',
+      'confidence': .8,
+    });
+
+    final output = ReceiptScanResult.fromJson(input.toJson());
+    expect(output.receiptNumber, '21310011261');
+    expect(output.paymentMethod, 'VISA');
+    expect(output.items.single.quantity, 2);
+    expect(output.items.single.barcode, '4820212460227');
+    expect(output.items.single.subcategory, 'Вермішель швидкого приготування');
+  });
+
   test('label scan accepts nullable nutrition fields without guessing', () {
     final result = LabelScanResult.fromJson({
       'name': 'Гранола',

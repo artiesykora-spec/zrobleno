@@ -100,7 +100,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       _id(day, morning),
       morning ? 'Ранкові таблетки' : 'Вечірні таблетки',
-      'Відміть приймання у Zrobleno — синичка нагадає без докорів.',
+      'Якщо вже прийняв — відміть це у Zrobleno.',
       when,
       const NotificationDetails(
         android: AndroidNotificationDetails(

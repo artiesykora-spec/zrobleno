@@ -201,7 +201,7 @@ class _Empty extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                'Додай новий маленький квест',
+                'Додай нове завдання',
                 style: TextStyle(color: Color(0xFF766A69), fontSize: 10),
               ),
             ],

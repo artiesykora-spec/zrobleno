@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_store.dart';
+import '../services/sound_service.dart';
 import '../theme.dart';
 import '../widgets/pixel_bird.dart';
 import '../widgets/rpg_garden_view.dart';
@@ -67,17 +68,19 @@ class _WorldPageState extends State<WorldPage> {
                   setState(() => _feederFound = true);
                   _garden.celebrate();
                 },
+                showMess: store.game.wolfMess,
+                onMessSweep: () =>
+                    SoundService.instance.play(AppSound.broomSweep),
+                onMessCleaned: () {
+                  store.cleanWolfMess();
+                  _garden.celebrate();
+                },
               ),
               const SizedBox(height: 15),
               _WorldStats(store: store),
               if (store.game.wolfMess) ...[
                 const SizedBox(height: 14),
-                _KlaksaEncounter(
-                  onClean: () {
-                    store.cleanWolfMess();
-                    _garden.celebrate();
-                  },
-                ),
+                const _KlaksaEncounter(),
               ],
               const SizedBox(height: 14),
               _ChapterMap(store: store),
@@ -114,7 +117,7 @@ class _WorldPageState extends State<WorldPage> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(12, 17, 12, 0),
                 child: Text(
-                  'Тут немає покарань. Клякса створює пригоди, але не забирає прогрес.',
+                  'Пропущений день не обнуляє прогрес. Максимум — Клякса знову десь наслідить.',
                   style: TextStyle(color: Colors.white60, fontSize: 9.5),
                   textAlign: TextAlign.center,
                 ),
@@ -136,6 +139,9 @@ class _GardenScene extends StatelessWidget {
     required this.feederFound,
     required this.onFirstMove,
     required this.onFeederTap,
+    required this.showMess,
+    required this.onMessSweep,
+    required this.onMessCleaned,
   });
 
   final AppStore store;
@@ -145,6 +151,9 @@ class _GardenScene extends StatelessWidget {
   final bool feederFound;
   final VoidCallback onFirstMove;
   final VoidCallback onFeederTap;
+  final bool showMess;
+  final VoidCallback onMessSweep;
+  final VoidCallback onMessCleaned;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -165,6 +174,9 @@ class _GardenScene extends StatelessWidget {
           controller: controller,
           onFirstMove: onFirstMove,
           onFeederTap: onFeederTap,
+          showMess: showMess,
+          onMessSweep: onMessSweep,
+          onMessCleaned: onMessCleaned,
         ),
         const IgnorePointer(
           child: DecoratedBox(
@@ -203,10 +215,12 @@ class _GardenScene extends StatelessWidget {
               child: _SceneHint(
                 key: ValueKey((birdMoved, feederFound)),
                 text: feederFound
-                    ? 'Годівничка відгукнулася. Синичка радіє!'
+                    ? 'Годівничку перевірено. Тут усе гаразд.'
+                    : showMess
+                    ? 'Клякса наслідила під деревом. Натисни на какашку п\u2019ять разів, щоб прибрати її віником.'
                     : birdMoved
-                    ? 'Чудово! Тепер торкнись годівнички.'
-                    : 'Торкнись стежки або гілки — Синичка підійде.',
+                    ? 'Тепер натисни на годівничку.'
+                    : 'Торкнися гілки або галявини, щоб перемістити Синичку.',
               ),
             ),
           ),
@@ -440,9 +454,7 @@ class _WorldStat extends StatelessWidget {
 }
 
 class _KlaksaEncounter extends StatelessWidget {
-  const _KlaksaEncounter({required this.onClean});
-
-  final VoidCallback onClean;
+  const _KlaksaEncounter();
 
   @override
   Widget build(BuildContext context) => PaperPanel(
@@ -466,7 +478,7 @@ class _KlaksaEncounter extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                'Знайди її слід, прибери жарт і поверни спокій у сад.',
+                'Ми застали її на місці злочину: вона втекла, а какашка димиться під деревом. П\u2019ять разів натисни на неї \u2014 віник зробить решту.',
                 style: TextStyle(
                   color: Color(0xFF746363),
                   fontSize: 9.5,
@@ -476,14 +488,7 @@ class _KlaksaEncounter extends StatelessWidget {
             ],
           ),
         ),
-        FilledButton(
-          onPressed: onClean,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(68, 42),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-          child: const Text('ПРИБРАТИ', style: TextStyle(fontSize: 8)),
-        ),
+        const Icon(Icons.cleaning_services_rounded, color: gamePlum, size: 32),
       ],
     ),
   );

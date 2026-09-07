@@ -12,6 +12,17 @@ import 'settings_page.dart';
 
 enum _ScanKind { receipt, label }
 
+const _receiptCategories = [
+  'Їжа',
+  'Домашні тварини',
+  'Побут',
+  'Здоров’я',
+  'Транспорт',
+  'Одяг',
+  'Розваги',
+  'Інше',
+];
+
 class ScannerPage extends StatefulWidget {
   const ScannerPage({required this.store, required this.onSaved, super.key});
 
@@ -58,6 +69,7 @@ class _ScannerPageState extends State<ScannerPage> {
       if (kind == _ScanKind.receipt) {
         final result = await service.analyzeReceipt(selected.path);
         if (!mounted) return;
+        widget.store.savePendingReceipt(result, selected.path);
         final saved = await _reviewReceipt(result, selected.path);
         if (saved && mounted) widget.onSaved();
       } else {
@@ -87,6 +99,15 @@ class _ScannerPageState extends State<ScannerPage> {
             style: TextStyle(color: Colors.white60, height: 1.4),
           ),
           const SizedBox(height: 18),
+          if (widget.store.pendingReceipt != null) ...[
+            _PendingReceiptCard(
+              storeName: widget.store.pendingReceipt!.storeName,
+              itemCount: widget.store.pendingReceipt!.items.length,
+              onContinue: _continuePendingReceipt,
+              onDiscard: _discardPendingReceipt,
+            ),
+            const SizedBox(height: 18),
+          ],
           SegmentedButton<_ScanKind>(
             segments: const [
               ButtonSegment(
@@ -194,6 +215,42 @@ class _ScannerPageState extends State<ScannerPage> {
         ],
       );
 
+  Future<void> _continuePendingReceipt() async {
+    final receipt = widget.store.pendingReceipt;
+    if (receipt == null) return;
+    final saved = await _reviewReceipt(
+      receipt,
+      widget.store.pendingReceiptPath,
+    );
+    if (saved && mounted) widget.onSaved();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _discardPendingReceipt() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Видалити чернетку?'),
+        content: const Text(
+          'Розпізнаний чек і внесені виправлення буде втрачено.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Залишити'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Видалити'),
+          ),
+        ],
+      ),
+    );
+    if (discard != true) return;
+    widget.store.clearPendingReceipt();
+    if (mounted) setState(() {});
+  }
+
   Future<bool> _reviewReceipt(
     ReceiptScanResult result,
     String receiptPath,
@@ -202,17 +259,34 @@ class _ScannerPageState extends State<ScannerPage> {
     final amount = TextEditingController(
       text: result.total > 0 ? result.total.toStringAsFixed(2) : '',
     );
-    const categories = [
-      'Продукти',
-      'Транспорт',
-      'Дім',
-      'Здоров’я',
-      'Розваги',
-      'Інше',
-    ];
-    var category =
-        categories.contains(result.category) ? result.category : 'Продукти';
+    final drafts = result.items.map(_ReceiptItemDraft.fromLine).toList();
     Expense? saved;
+    ReceiptScanResult? reviewedReceipt;
+
+    ReceiptScanResult buildReview() {
+      final items = drafts.map((draft) => draft.toReceiptLine()).toList();
+      final categories = items
+          .map((item) => item.expenseCategory)
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      final receiptCategory = categories.length == 1
+          ? categories.single
+          : 'Змішаний чек';
+      final needsLabel = items
+          .where(
+            (item) =>
+                item.trackNutrition && item.nutritionSource == 'label',
+          )
+          .map((item) => item.name)
+          .toList();
+      return result.copyWith(
+        storeName: title.text.trim(),
+        total: double.tryParse(amount.text.trim().replaceAll(',', '.')),
+        category: receiptCategory,
+        items: items,
+        needsLabel: needsLabel,
+      );
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -247,7 +321,7 @@ class _ScannerPageState extends State<ScannerPage> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Перевір магазин і суму — фото може бути нечітким.',
+                  'Перевір назви, призначення товарів і суму. Нечіткі скорочення можна виправити вручну.',
                   style: TextStyle(color: Colors.white60),
                 ),
                 const SizedBox(height: 14),
@@ -258,38 +332,39 @@ class _ScannerPageState extends State<ScannerPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: amount,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(labelText: 'Сума, ₴'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: category,
-                        decoration: const InputDecoration(
-                          labelText: 'Категорія',
-                        ),
-                        items: categories
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) =>
-                            setSheetState(() => category = value ?? category),
-                      ),
-                    ),
-                  ],
+                TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Сума, ₴'),
                 ),
+                if (result.receiptDate != null ||
+                    result.receiptNumber.isNotEmpty ||
+                    result.paymentMethod.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (result.receiptDate != null)
+                        _ReceiptMetaChip(
+                          icon: Icons.calendar_today_outlined,
+                          text: result.receiptDate!,
+                        ),
+                      if (result.receiptNumber.isNotEmpty)
+                        _ReceiptMetaChip(
+                          icon: Icons.receipt_outlined,
+                          text: 'Чек № ${result.receiptNumber}',
+                        ),
+                      if (result.paymentMethod.isNotEmpty)
+                        _ReceiptMetaChip(
+                          icon: Icons.credit_card_outlined,
+                          text: result.paymentMethod,
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Text(
                   'Позиції · ${result.items.length}',
@@ -299,27 +374,21 @@ class _ScannerPageState extends State<ScannerPage> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                ...result.items.map(
-                  (item) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(item.name),
-                    subtitle: Text(
-                      item.nutritionStatus == 'needs_label'
-                          ? 'Для калорій потрібна етикетка'
-                          : item.estimatedCalories == null
-                              ? 'Не харчовий товар'
-                              : '≈ ${item.estimatedCalories!.round()} ккал у придбаній кількості',
-                      style: TextStyle(
-                        color: item.nutritionStatus == 'needs_label'
-                            ? orange
-                            : Colors.white54,
-                      ),
+                ...List.generate(
+                  drafts.length,
+                  (index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ReceiptItemEditor(
+                      index: index,
+                      draft: drafts[index],
+                      onChanged: () => setSheetState(() {}),
                     ),
-                    trailing: Text('${item.totalPrice.toStringAsFixed(2)} ₴'),
                   ),
                 ),
-                if (result.needsLabel.isNotEmpty) ...[
+                if (drafts.any(
+                  (item) =>
+                      item.trackNutrition && item.nutritionSource == 'label',
+                )) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -328,9 +397,9 @@ class _ScannerPageState extends State<ScannerPage> {
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: orange.withValues(alpha: .35)),
                     ),
-                    child: Text(
-                      'Для точних калорій сфотографуй етикетку: ${result.needsLabel.join(', ')}.',
-                      style: const TextStyle(height: 1.35),
+                    child: const Text(
+                      'Етикетка потрібна лише для позначених товарів із режимом «Фото етикетки». Корм для тварин і побутові товари в харчування не потрапляють.',
+                      style: TextStyle(height: 1.35),
                     ),
                   ),
                 ],
@@ -344,6 +413,15 @@ class _ScannerPageState extends State<ScannerPage> {
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Відкласти й продовжити пізніше'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: () {
                       final parsed = double.tryParse(
@@ -354,16 +432,21 @@ class _ScannerPageState extends State<ScannerPage> {
                           parsed <= 0) {
                         return;
                       }
+                      reviewedReceipt = buildReview();
                       saved = Expense(
                         id: widget.store.id(),
                         title: title.text.trim(),
                         amount: parsed,
-                        category: category,
-                        date: DateTime.now(),
+                        category: reviewedReceipt!.category,
+                        date:
+                            DateTime.tryParse(result.receiptDate ?? '') ??
+                            DateTime.now(),
                         receiptPath: receiptPath,
                       );
-                      widget.store.expenses.add(saved!);
-                      widget.store.changed(sound: AppSound.actionConfirm);
+                      widget.store.saveScannedExpense(
+                        saved!,
+                        reviewedReceipt!,
+                      );
                       Navigator.pop(context);
                     },
                     icon: const Icon(Icons.check),
@@ -380,13 +463,19 @@ class _ScannerPageState extends State<ScannerPage> {
       ),
     );
 
+    if (saved == null) {
+      final pending = buildReview();
+      title.dispose();
+      amount.dispose();
+      widget.store.savePendingReceipt(pending, receiptPath);
+      return false;
+    }
     title.dispose();
     amount.dispose();
-    if (saved == null) return false;
     try {
       await AiService(
         widget.store.aiSettings,
-      ).syncExpense(saved!, receipt: result);
+      ).syncExpense(saved!, receipt: reviewedReceipt);
     } on AiServiceException {
       SoundService.instance.play(AppSound.softError);
       if (!mounted) return true;
@@ -607,6 +696,309 @@ class _ScannerPageState extends State<ScannerPage> {
       );
     }
   }
+}
+
+class _PendingReceiptCard extends StatelessWidget {
+  const _PendingReceiptCard({
+    required this.storeName,
+    required this.itemCount,
+    required this.onContinue,
+    required this.onDiscard,
+  });
+
+  final String storeName;
+  final int itemCount;
+  final VoidCallback onContinue;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: sunYellow.withValues(alpha: .13),
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.draft_outlined, color: sunYellow),
+              SizedBox(width: 8),
+              Text(
+                'НЕЗАВЕРШЕНИЙ ЧЕК',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text('$storeName · $itemCount позицій'),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: onContinue,
+                  child: const Text('Продовжити'),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Видалити чернетку',
+                onPressed: onDiscard,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReceiptMetaChip extends StatelessWidget {
+  const _ReceiptMetaChip({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .06),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: gameMint),
+        const SizedBox(width: 5),
+        Text(text, style: const TextStyle(fontSize: 11)),
+      ],
+    ),
+  );
+}
+
+class _ReceiptItemDraft {
+  _ReceiptItemDraft.fromLine(this.original)
+    : name = original.name,
+      consumerType = original.consumerType,
+      expenseCategory = _receiptCategories.contains(original.expenseCategory)
+          ? original.expenseCategory
+          : 'Інше',
+      subcategory = original.subcategory,
+      barcode = original.barcode,
+      trackNutrition = original.trackNutrition,
+      nutritionSource = original.nutritionSource;
+
+  final ReceiptLine original;
+  String name;
+  String consumerType;
+  String expenseCategory;
+  String subcategory;
+  String barcode;
+  bool trackNutrition;
+  String nutritionSource;
+
+  ReceiptLine toReceiptLine() => original.copyWith(
+    name: name.trim().isEmpty ? original.name : name.trim(),
+    consumerType: consumerType,
+    expenseCategory: expenseCategory,
+    subcategory: subcategory.trim(),
+    barcode: barcode.trim(),
+    trackNutrition: trackNutrition,
+    nutritionSource: trackNutrition ? nutritionSource : 'none',
+  );
+}
+
+class _ReceiptItemEditor extends StatelessWidget {
+  const _ReceiptItemEditor({
+    required this.index,
+    required this.draft,
+    required this.onChanged,
+  });
+
+  final int index;
+  final _ReceiptItemDraft draft;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    color: Colors.white.withValues(alpha: .045),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'ПОЗИЦІЯ ${index + 1}',
+                  style: const TextStyle(
+                    color: gameMint,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '${draft.original.totalPrice.toStringAsFixed(2)} ₴',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: ValueKey('receipt-name-$index-${draft.original.rawName}'),
+            initialValue: draft.name,
+            decoration: const InputDecoration(labelText: 'Назва товару'),
+            onChanged: (value) => draft.name = value,
+          ),
+          if (draft.original.rawName.isNotEmpty &&
+              draft.original.rawName != draft.name) ...[
+            const SizedBox(height: 5),
+            Text(
+              'У чеку: ${draft.original.rawName}',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ],
+          const SizedBox(height: 9),
+          DropdownButtonFormField<String>(
+            initialValue: const [
+              'human_food',
+              'pet',
+              'non_food',
+            ].contains(draft.consumerType)
+                ? draft.consumerType
+                : 'non_food',
+            decoration: const InputDecoration(labelText: 'Призначення'),
+            items: const [
+              DropdownMenuItem(
+                value: 'human_food',
+                child: Text('Їжа для мене'),
+              ),
+              DropdownMenuItem(
+                value: 'pet',
+                child: Text('Для котів / тварин'),
+              ),
+              DropdownMenuItem(
+                value: 'non_food',
+                child: Text('Не харчовий товар'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              draft.consumerType = value;
+              if (value == 'pet') {
+                draft.expenseCategory = 'Домашні тварини';
+                draft.trackNutrition = false;
+                draft.nutritionSource = 'none';
+              } else if (value == 'human_food') {
+                draft.expenseCategory = 'Їжа';
+                draft.trackNutrition = true;
+                if (draft.nutritionSource == 'none') {
+                  draft.nutritionSource = 'label';
+                }
+              } else {
+                draft.trackNutrition = false;
+                draft.nutritionSource = 'none';
+              }
+              onChanged();
+            },
+          ),
+          const SizedBox(height: 9),
+          DropdownButtonFormField<String>(
+            initialValue: draft.expenseCategory,
+            decoration: const InputDecoration(labelText: 'Категорія витрати'),
+            items: _receiptCategories
+                .map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(value),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              draft.expenseCategory = value;
+              onChanged();
+            },
+          ),
+          const SizedBox(height: 9),
+          TextFormField(
+            initialValue: draft.subcategory,
+            decoration: const InputDecoration(
+              labelText: 'Підкатегорія',
+              hintText: 'Напр. корм для котів, локшина, побутова хімія',
+            ),
+            onChanged: (value) => draft.subcategory = value,
+          ),
+          const SizedBox(height: 9),
+          TextFormField(
+            initialValue: draft.barcode,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Штрихкод товару',
+              hintText: 'Якщо надрукований у чеку',
+            ),
+            onChanged: (value) => draft.barcode = value,
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text('Рахувати у моєму харчуванні'),
+            subtitle: Text(
+              draft.consumerType == 'pet'
+                  ? 'Корм для тварин за замовчуванням не рахується.'
+                  : 'Увімкни лише для того, що фактично можеш з’їсти.',
+            ),
+            value: draft.trackNutrition,
+            onChanged: (value) {
+              draft.trackNutrition = value ?? false;
+              if (!draft.trackNutrition) {
+                draft.nutritionSource = 'none';
+              } else if (draft.nutritionSource == 'none') {
+                draft.nutritionSource = 'label';
+              }
+              onChanged();
+            },
+          ),
+          if (draft.trackNutrition)
+            DropdownButtonFormField<String>(
+              initialValue: const [
+                'known',
+                'reference',
+                'label',
+              ].contains(draft.nutritionSource)
+                  ? draft.nutritionSource
+                  : 'label',
+              decoration: const InputDecoration(
+                labelText: 'Звідки уточнити калорійність',
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: 'known',
+                  child: Text('Уже відома з чека'),
+                ),
+                DropdownMenuItem(
+                  value: 'reference',
+                  child: Text('Довідкова оцінка AI'),
+                ),
+                DropdownMenuItem(
+                  value: 'label',
+                  child: Text('Фото етикетки'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                draft.nutritionSource = value;
+                onChanged();
+              },
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _EmptyScanner extends StatelessWidget {

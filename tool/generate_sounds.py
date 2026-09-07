@@ -112,6 +112,25 @@ def add_noise_click(out: list[float], start: float, duration: float, gain: float
         out[index] += filtered * gain * math.exp(-48 * t)
 
 
+def add_sweep_noise(out: list[float], start: float, duration: float, gain: float) -> None:
+    rng = random.Random(9173)
+    first = int(start * RATE)
+    count = int(duration * RATE)
+    smooth = 0.0
+    for i in range(count):
+        index = first + i
+        if index >= len(out):
+            break
+        t = i / RATE
+        progress = t / duration
+        raw = rng.uniform(-1.0, 1.0)
+        smooth = smooth * 0.72 + raw * 0.28
+        bristles = raw - smooth
+        arc = math.sin(math.pi * progress) ** 0.65
+        pulse = 0.72 + 0.28 * math.sin(2 * math.pi * 19 * t) ** 2
+        out[index] += bristles * gain * arc * pulse
+
+
 def apply_echo(out: list[float], delays: tuple[tuple[float, float], ...]) -> None:
     dry = out[:]
     for delay, gain in delays:
@@ -210,6 +229,13 @@ def make_soft_error() -> list[float]:
     return out
 
 
+def make_broom_sweep() -> list[float]:
+    out = buffer(0.34)
+    add_sweep_noise(out, 0.00, 0.26, 0.34)
+    add_noise_click(out, 0.22, 0.08, 0.10)
+    return out
+
+
 def main() -> None:
     sounds = {
         "ui_tap.wav": make_tap(),
@@ -219,6 +245,7 @@ def main() -> None:
         "morning_sun.wav": make_morning(),
         "zrobleno_notification.wav": make_notification(),
         "soft_error.wav": make_soft_error(),
+        "broom_sweep.wav": make_broom_sweep(),
     }
     for name, samples in sounds.items():
         save(name, samples)

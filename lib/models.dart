@@ -266,11 +266,19 @@ class ReceiptLine {
     required this.isFood,
     required this.nutritionStatus,
     required this.confidence,
+    this.rawName = '',
+    this.consumerType = 'non_food',
+    this.expenseCategory = 'Інше',
+    this.subcategory = '',
+    this.barcode = '',
+    this.trackNutrition = false,
+    this.nutritionSource = 'none',
     this.unitPrice,
     this.estimatedCalories,
   });
 
   final String name;
+  final String rawName;
   final double quantity;
   final double? unitPrice;
   final double totalPrice;
@@ -278,20 +286,82 @@ class ReceiptLine {
   final double? estimatedCalories;
   final String nutritionStatus;
   final double confidence;
+  final String consumerType;
+  final String expenseCategory;
+  final String subcategory;
+  final String barcode;
+  final bool trackNutrition;
+  final String nutritionSource;
 
-  factory ReceiptLine.fromJson(Map<String, dynamic> json) => ReceiptLine(
-    name: json['name'] as String? ?? 'Невідомий товар',
-    quantity: (json['quantity'] as num?)?.toDouble() ?? 1,
-    unitPrice: (json['unit_price'] as num?)?.toDouble(),
-    totalPrice: (json['total_price'] as num?)?.toDouble() ?? 0,
-    isFood: json['is_food'] as bool? ?? false,
-    estimatedCalories: (json['estimated_calories'] as num?)?.toDouble(),
-    nutritionStatus: json['nutrition_status'] as String? ?? 'needs_label',
-    confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+  bool get isHumanFood => consumerType == 'human_food';
+
+  ReceiptLine copyWith({
+    String? name,
+    String? rawName,
+    String? consumerType,
+    String? expenseCategory,
+    String? subcategory,
+    String? barcode,
+    bool? trackNutrition,
+    String? nutritionSource,
+  }) => ReceiptLine(
+    name: name ?? this.name,
+    rawName: rawName ?? this.rawName,
+    quantity: quantity,
+    unitPrice: unitPrice,
+    totalPrice: totalPrice,
+    isFood: isFood,
+    estimatedCalories: estimatedCalories,
+    nutritionStatus: nutritionStatus,
+    confidence: confidence,
+    consumerType: consumerType ?? this.consumerType,
+    expenseCategory: expenseCategory ?? this.expenseCategory,
+    subcategory: subcategory ?? this.subcategory,
+    barcode: barcode ?? this.barcode,
+    trackNutrition: trackNutrition ?? this.trackNutrition,
+    nutritionSource: nutritionSource ?? this.nutritionSource,
   );
+
+  factory ReceiptLine.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] as String? ?? 'Невідомий товар';
+    final isFood = json['is_food'] as bool? ?? false;
+    final consumerType = json['consumer_type'] as String? ??
+        _inferReceiptConsumer(name, isFood);
+    final nutritionStatus =
+        json['nutrition_status'] as String? ?? 'needs_label';
+    final estimatedCalories =
+        (json['estimated_calories'] as num?)?.toDouble();
+    return ReceiptLine(
+      name: name,
+      rawName: json['raw_name'] as String? ?? name,
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 1,
+      unitPrice: (json['unit_price'] as num?)?.toDouble(),
+      totalPrice: (json['total_price'] as num?)?.toDouble() ?? 0,
+      isFood: isFood,
+      estimatedCalories: estimatedCalories,
+      nutritionStatus: nutritionStatus,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      consumerType: consumerType,
+      expenseCategory: json['expense_category'] as String? ??
+          _defaultReceiptCategory(consumerType),
+      subcategory: json['subcategory'] as String? ?? '',
+      barcode: json['barcode'] as String? ?? '',
+      trackNutrition: json['track_nutrition_default'] as bool? ??
+          consumerType == 'human_food',
+      nutritionSource: json['nutrition_source'] as String? ??
+          (consumerType != 'human_food'
+              ? 'none'
+              : nutritionStatus == 'needs_label'
+              ? 'label'
+              : estimatedCalories == null
+              ? 'reference'
+              : 'known'),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'name': name,
+    'raw_name': rawName,
     'quantity': quantity,
     'unit_price': unitPrice,
     'total_price': totalPrice,
@@ -299,8 +369,32 @@ class ReceiptLine {
     'estimated_calories': estimatedCalories,
     'nutrition_status': nutritionStatus,
     'confidence': confidence,
+    'consumer_type': consumerType,
+    'expense_category': expenseCategory,
+    'subcategory': subcategory,
+    'barcode': barcode,
+    'track_nutrition_default': trackNutrition,
+    'nutrition_source': nutritionSource,
   };
 }
+
+String _inferReceiptConsumer(String name, bool isFood) {
+  final value = name.toLowerCase();
+  if (value.contains('корм') ||
+      value.contains('pet food') ||
+      value.contains('для кот') ||
+      value.contains('д/кот') ||
+      value.contains('для собак')) {
+    return 'pet';
+  }
+  return isFood ? 'human_food' : 'non_food';
+}
+
+String _defaultReceiptCategory(String consumerType) => switch (consumerType) {
+  'human_food' => 'Їжа',
+  'pet' => 'Домашні тварини',
+  _ => 'Інше',
+};
 
 class ReceiptScanResult {
   ReceiptScanResult({
@@ -313,6 +407,9 @@ class ReceiptScanResult {
     required this.note,
     required this.confidence,
     this.receiptDate,
+    this.receiptNumber = '',
+    this.paymentMethod = '',
+    this.receiptCode = '',
   });
 
   final String storeName;
@@ -324,6 +421,9 @@ class ReceiptScanResult {
   final List<String> needsLabel;
   final String note;
   final double confidence;
+  final String receiptNumber;
+  final String paymentMethod;
+  final String receiptCode;
 
   factory ReceiptScanResult.fromJson(Map<String, dynamic> json) =>
       ReceiptScanResult(
@@ -340,7 +440,76 @@ class ReceiptScanResult {
             .toList(),
         note: json['note'] as String? ?? '',
         confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+        receiptNumber: json['receipt_number'] as String? ?? '',
+        paymentMethod: json['payment_method'] as String? ?? '',
+        receiptCode: json['receipt_code'] as String? ?? '',
       );
+
+  ReceiptScanResult copyWith({
+    String? storeName,
+    String? category,
+    double? total,
+    List<ReceiptLine>? items,
+    List<String>? needsLabel,
+  }) => ReceiptScanResult(
+    storeName: storeName ?? this.storeName,
+    receiptDate: receiptDate,
+    currency: currency,
+    total: total ?? this.total,
+    category: category ?? this.category,
+    items: items ?? this.items,
+    needsLabel: needsLabel ?? this.needsLabel,
+    note: note,
+    confidence: confidence,
+    receiptNumber: receiptNumber,
+    paymentMethod: paymentMethod,
+    receiptCode: receiptCode,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'store_name': storeName,
+    'receipt_date': receiptDate,
+    'currency': currency,
+    'total': total,
+    'category': category,
+    'items': items.map((item) => item.toJson()).toList(),
+    'needs_label': needsLabel,
+    'note': note,
+    'confidence': confidence,
+    'receipt_number': receiptNumber,
+    'payment_method': paymentMethod,
+    'receipt_code': receiptCode,
+  };
+}
+
+class SavedReceipt {
+  SavedReceipt({
+    required this.id,
+    required this.expenseId,
+    required this.savedAt,
+    required this.receipt,
+  });
+
+  final String id;
+  final String expenseId;
+  final DateTime savedAt;
+  final ReceiptScanResult receipt;
+
+  factory SavedReceipt.fromJson(Map<String, dynamic> json) => SavedReceipt(
+    id: json['id'] as String,
+    expenseId: json['expenseId'] as String,
+    savedAt: DateTime.parse(json['savedAt'] as String),
+    receipt: ReceiptScanResult.fromJson(
+      json['receipt'] as Map<String, dynamic>? ?? const {},
+    ),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'expenseId': expenseId,
+    'savedAt': savedAt.toIso8601String(),
+    'receipt': receipt.toJson(),
+  };
 }
 
 class LabelScanResult {

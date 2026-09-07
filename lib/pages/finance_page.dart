@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../app_store.dart';
 import '../dialogs.dart';
+import '../models.dart';
 import '../theme.dart';
 
 class FinancePage extends StatelessWidget {
@@ -64,7 +65,19 @@ class FinancePage extends StatelessWidget {
                     ),
                     child: Card(
                       child: ListTile(
-                        onTap: () => editExpense(context, store, item: expense),
+                        onTap: () {
+                          final receipt = store.receiptForExpense(expense.id);
+                          if (receipt == null) {
+                            editExpense(context, store, item: expense);
+                          } else {
+                            _showReceiptDetails(
+                              context,
+                              store,
+                              expense,
+                              receipt,
+                            );
+                          }
+                        },
                         leading: const CircleAvatar(backgroundColor: Color(0x3343E69B), child: Icon(Icons.receipt_long, color: green)),
                         title: Text(expense.title),
                         subtitle: Text('${expense.category} • ${DateFormat('dd.MM.yyyy').format(expense.date)}'),
@@ -78,4 +91,77 @@ class FinancePage extends StatelessWidget {
           );
         },
       );
+}
+
+Future<void> _showReceiptDetails(
+  BuildContext context,
+  AppStore store,
+  Expense expense,
+  SavedReceipt savedReceipt,
+) async {
+  final receipt = savedReceipt.receipt;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .78,
+      minChildSize: .45,
+      maxChildSize: .94,
+      builder: (context, controller) => ListView(
+        controller: controller,
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
+        children: [
+          Text(
+            receipt.storeName,
+            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${DateFormat('dd.MM.yyyy').format(expense.date)} · ${expense.amount.toStringAsFixed(2)} ₴ · ${expense.category}',
+            style: const TextStyle(color: Colors.white60),
+          ),
+          if (receipt.receiptNumber.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              'Чек № ${receipt.receiptNumber}',
+              style: const TextStyle(color: Colors.white54),
+            ),
+          ],
+          const SizedBox(height: 18),
+          const Text(
+            'ПОЗИЦІЇ ЧЕКА',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 7),
+          ...receipt.items.map(
+            (item) => Card(
+              child: ListTile(
+                title: Text(item.name),
+                subtitle: Text(
+                  [
+                    item.expenseCategory,
+                    if (item.subcategory.isNotEmpty) item.subcategory,
+                    if (item.consumerType == 'pet') 'для тварин',
+                    if (item.trackNutrition) 'враховувати в харчуванні',
+                  ].join(' · '),
+                ),
+                trailing: Text('${item.totalPrice.toStringAsFixed(2)} ₴'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              editExpense(context, store, item: expense);
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Редагувати загальний запис'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

@@ -17,6 +17,7 @@ class AppStore extends ChangeNotifier {
   List<Expense> expenses = [];
   List<FoodEntry> foods = [];
   List<Product> products = [];
+  List<SavedReceipt> receipts = [];
   List<AssistantMessage> assistantMessages = [];
   ReminderSettings reminders = ReminderSettings();
   AiSettings aiSettings = AiSettings();
@@ -28,6 +29,8 @@ class AppStore extends ChangeNotifier {
   String medicineDay = '';
   int dailyCalorieGoal = 1850;
   bool soundEnabled = true;
+  ReceiptScanResult? pendingReceipt;
+  String pendingReceiptPath = '';
 
   static Future<AppStore> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -36,6 +39,10 @@ class AppStore extends ChangeNotifier {
       ..expenses = decodeList(prefs.getString('expenses'), Expense.fromJson)
       ..foods = decodeList(prefs.getString('foods'), FoodEntry.fromJson)
       ..products = decodeList(prefs.getString('products'), Product.fromJson)
+      ..receipts = decodeList(
+        prefs.getString('receipts'),
+        SavedReceipt.fromJson,
+      )
       ..assistantMessages = decodeList(
         prefs.getString('assistantMessages'),
         AssistantMessage.fromJson,
@@ -56,6 +63,11 @@ class AppStore extends ChangeNotifier {
       ..morningMedicine = prefs.getBool('morningMedicine') ?? false
       ..eveningMedicine = prefs.getBool('eveningMedicine') ?? false;
     store.soundEnabled = prefs.getBool('soundEnabled') ?? true;
+    final pendingJson = decodeObject(prefs.getString('pendingReceipt'));
+    if (pendingJson.isNotEmpty) {
+      store.pendingReceipt = ReceiptScanResult.fromJson(pendingJson);
+      store.pendingReceiptPath = prefs.getString('pendingReceiptPath') ?? '';
+    }
     store._resetMedicineIfNeeded();
     return store;
   }
@@ -85,16 +97,16 @@ class AppStore extends ChangeNotifier {
   String get assistantMessage {
     final calories = todayCalories.round();
     if (!morningMedicine && DateTime.now().hour >= reminders.morningHour) {
-      return 'Доброго ранку! Таблетки ще чекають на свою галочку.';
+      return 'Ранкові ліки ще не відмічені. Якщо вже прийняв — зафіксуй це.';
     }
     if (calories == 0) {
-      return 'Занесімо першу їжу — я почну рахувати день разом з тобою.';
+      return 'Після першого прийому їжі зафіксуй порцію — тоді підсумок дня буде точним.';
     }
     final remaining = remainingCalories.round();
     if (remaining >= 0) {
       return 'Сьогодні $calories ккал. До твоєї цілі ще приблизно $remaining ккал.';
     }
-    return 'Сьогодні $calories ккал — на ${remaining.abs()} більше цілі. Без покарань: просто сплануймо наступний прийом їжі.';
+    return 'Сьогодні $calories ккал — на ${remaining.abs()} більше цілі. Просто врахуємо це в наступному прийомі їжі.';
   }
 
   Map<String, dynamic> get assistantContext {
@@ -161,6 +173,10 @@ class AppStore extends ChangeNotifier {
         encodeList(products, (item) => item.toJson()),
       ),
       _prefs.setString(
+        'receipts',
+        encodeList(receipts, (item) => item.toJson()),
+      ),
+      _prefs.setString(
         'assistantMessages',
         encodeList(assistantMessages, (item) => item.toJson()),
       ),
@@ -174,6 +190,11 @@ class AppStore extends ChangeNotifier {
       _prefs.setBool('morningMedicine', morningMedicine),
       _prefs.setBool('eveningMedicine', eveningMedicine),
       _prefs.setBool('soundEnabled', soundEnabled),
+      _prefs.setString(
+        'pendingReceipt',
+        pendingReceipt == null ? '{}' : jsonEncode(pendingReceipt!.toJson()),
+      ),
+      _prefs.setString('pendingReceiptPath', pendingReceiptPath),
     ]);
   }
 
@@ -202,6 +223,41 @@ class AppStore extends ChangeNotifier {
 
   void deleteExpense(Expense value) {
     expenses.remove(value);
+    receipts.removeWhere((receipt) => receipt.expenseId == value.id);
+    changed(sound: AppSound.actionConfirm);
+  }
+
+  SavedReceipt? receiptForExpense(String expenseId) {
+    for (final receipt in receipts) {
+      if (receipt.expenseId == expenseId) return receipt;
+    }
+    return null;
+  }
+
+  void savePendingReceipt(ReceiptScanResult receipt, String imagePath) {
+    pendingReceipt = receipt;
+    pendingReceiptPath = imagePath;
+    changed();
+  }
+
+  void clearPendingReceipt() {
+    pendingReceipt = null;
+    pendingReceiptPath = '';
+    changed();
+  }
+
+  void saveScannedExpense(Expense expense, ReceiptScanResult receipt) {
+    expenses.add(expense);
+    receipts.add(
+      SavedReceipt(
+        id: id(),
+        expenseId: expense.id,
+        savedAt: DateTime.now(),
+        receipt: receipt,
+      ),
+    );
+    pendingReceipt = null;
+    pendingReceiptPath = '';
     changed(sound: AppSound.actionConfirm);
   }
 
