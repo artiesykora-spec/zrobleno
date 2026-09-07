@@ -16,9 +16,10 @@ class AiServiceException implements Exception {
 }
 
 class AiService {
-  AiService(this.settings);
+  AiService(this.settings, {http.Client? client}) : _client = client;
 
   final AiSettings settings;
+  final http.Client? _client;
 
   Future<String> health() async {
     final result = await _post('health');
@@ -111,19 +112,43 @@ class AiService {
       throw const AiServiceException('Спочатку підключи AI у налаштуваннях.');
     }
 
-    http.Response response;
+    final endpoint = Uri.parse(settings.endpoint.trim());
+    final encodedBody = jsonEncode({
+      'token': settings.appToken.trim(),
+      'action': action,
+      ...payload,
+    });
+    final client = _client ?? http.Client();
+    late http.Response response;
     try {
-      response = await http
+      response = await client
           .post(
-            Uri.parse(settings.endpoint.trim()),
+            endpoint,
             headers: const {'Content-Type': 'application/json; charset=utf-8'},
-            body: jsonEncode({
-              'token': settings.appToken.trim(),
-              'action': action,
-              ...payload,
-            }),
+            body: encodedBody,
           )
           .timeout(const Duration(seconds: 75));
+
+      // Google Apps Script executes doPost, then returns its JSON through a
+      // one-time 302/303 URL on script.googleusercontent.com. Dart does not
+      // automatically follow POST redirects that change to GET.
+      if (response.statusCode == 302 || response.statusCode == 303) {
+        final location = response.headers['location'];
+        if (location == null || location.trim().isEmpty) {
+          throw const AiServiceException(
+            'AI-сервер повернув перенаправлення без адреси.',
+          );
+        }
+        final redirectUri = endpoint.resolve(location);
+        if (redirectUri.scheme != 'https') {
+          throw const AiServiceException(
+            'AI-сервер повернув небезпечну адресу перенаправлення.',
+          );
+        }
+        response = await client
+            .get(redirectUri)
+            .timeout(const Duration(seconds: 75));
+      }
     } on TimeoutException {
       throw const AiServiceException(
         'AI відповідає надто довго. Перевір інтернет і спробуй ще раз.',
@@ -136,6 +161,8 @@ class AiService {
       throw const AiServiceException('Неправильна адреса AI-сервера.');
     } on http.ClientException {
       throw const AiServiceException('Не вдалося з’єднатися з AI-сервером.');
+    } finally {
+      if (_client == null) client.close();
     }
 
     Map<String, dynamic> decoded;
