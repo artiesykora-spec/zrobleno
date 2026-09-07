@@ -721,7 +721,7 @@ class _PendingReceiptCard extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.draft_outlined, color: sunYellow),
+              Icon(Icons.description_outlined, color: sunYellow),
               SizedBox(width: 8),
               Text(
                 'НЕЗАВЕРШЕНИЙ ЧЕК',
