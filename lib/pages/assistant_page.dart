@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_store.dart';
 import '../models.dart';
 import '../services/ai_service.dart';
+import '../services/sound_service.dart';
 import '../theme.dart';
 import '../widgets/pixel_bird.dart';
 import 'settings_page.dart';
@@ -71,6 +72,7 @@ class _AssistantPageState extends State<AssistantPage> {
         }
       });
     } on AiServiceException catch (error) {
+      SoundService.instance.play(AppSound.softError);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -94,6 +96,7 @@ class _AssistantPageState extends State<AssistantPage> {
         await service.syncExpense(widget.store.expenses.last);
       }
     } on AiServiceException {
+      SoundService.instance.play(AppSound.softError);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

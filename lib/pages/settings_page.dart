@@ -4,6 +4,7 @@ import '../app_store.dart';
 import '../models.dart';
 import '../services/ai_service.dart';
 import '../services/notification_service.dart';
+import '../services/sound_service.dart';
 import '../theme.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -162,6 +163,38 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         const SizedBox(height: 24),
         const Text(
+          'Звуки',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.volume_up_rounded, color: gameMint),
+                title: const Text('Звуки в застосунку'),
+                subtitle: const Text(
+                  'Квести, збереження, нагороди та ранковий ритуал.',
+                ),
+                value: widget.store.soundEnabled,
+                onChanged: (value) => setState(
+                  () => widget.store.updateSoundEnabled(value),
+                ),
+              ),
+              ListTile(
+                enabled: widget.store.soundEnabled,
+                leading: const Icon(Icons.music_note_rounded, color: sunYellow),
+                title: const Text('Прослухати звук нагороди'),
+                trailing: const Icon(Icons.play_arrow_rounded),
+                onTap: widget.store.soundEnabled
+                    ? () => SoundService.instance.play(AppSound.rewardUnlock)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Text(
           'Ліки',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
         ),
@@ -263,6 +296,7 @@ class _SettingsPageState extends State<SettingsPage> {
       morningTaken: widget.store.morningMedicine,
       eveningTaken: widget.store.eveningMedicine,
     );
+    SoundService.instance.play(AppSound.actionConfirm);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -285,6 +319,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
     if (goal != null) widget.store.updateDailyCalorieGoal(goal);
+    SoundService.instance.play(AppSound.actionConfirm);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Налаштування AI збережено.')));
@@ -306,6 +341,7 @@ class _SettingsPageState extends State<SettingsPage> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     } on AiServiceException catch (error) {
+      SoundService.instance.play(AppSound.softError);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,

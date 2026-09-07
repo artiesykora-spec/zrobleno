@@ -21,7 +21,7 @@ class NotificationService {
       tz.initializeTimeZones();
       tz.setLocalLocation(tz.getLocation('Europe/Kyiv'));
       const settings = InitializationSettings(
-        android: AndroidInitializationSettings('@drawable/ic_launcher'),
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       );
       _ready = await _plugin.initialize(settings) ?? false;
     } catch (_) {
@@ -104,11 +104,15 @@ class NotificationService {
       when,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'medicine_reminders',
+          'medicine_reminders_v2',
           'Нагадування про ліки',
           channelDescription: 'Ранкові та вечірні нагадування про таблетки',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(
+            'zrobleno_notification',
+          ),
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -133,11 +137,15 @@ class NotificationService {
       'Тестове нагадування працює 🐦',
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'medicine_reminders',
+          'medicine_reminders_v2',
           'Нагадування про ліки',
           channelDescription: 'Ранкові та вечірні нагадування про таблетки',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(
+            'zrobleno_notification',
+          ),
         ),
       ),
     );

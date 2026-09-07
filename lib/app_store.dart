@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'models.dart';
+import 'services/sound_service.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore(this._prefs);
@@ -26,6 +27,7 @@ class AppStore extends ChangeNotifier {
   bool eveningMedicine = false;
   String medicineDay = '';
   int dailyCalorieGoal = 1850;
+  bool soundEnabled = true;
 
   static Future<AppStore> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -53,6 +55,7 @@ class AppStore extends ChangeNotifier {
       ..dailyCalorieGoal = prefs.getInt('dailyCalorieGoal') ?? 1850
       ..morningMedicine = prefs.getBool('morningMedicine') ?? false
       ..eveningMedicine = prefs.getBool('eveningMedicine') ?? false;
+    store.soundEnabled = prefs.getBool('soundEnabled') ?? true;
     store._resetMedicineIfNeeded();
     return store;
   }
@@ -170,12 +173,14 @@ class AppStore extends ChangeNotifier {
       _prefs.setInt('dailyCalorieGoal', dailyCalorieGoal),
       _prefs.setBool('morningMedicine', morningMedicine),
       _prefs.setBool('eveningMedicine', eveningMedicine),
+      _prefs.setBool('soundEnabled', soundEnabled),
     ]);
   }
 
-  void changed() {
+  void changed({AppSound? sound}) {
     _save();
     notifyListeners();
+    if (sound != null) SoundService.instance.play(sound);
   }
 
   void _reward(String actionId, {int seeds = 2, int xp = 4}) {
@@ -187,22 +192,22 @@ class AppStore extends ChangeNotifier {
   void toggleTask(TodoItem task, bool value) {
     task.done = value;
     if (value) _reward('task:${task.id}', seeds: 2, xp: 5);
-    changed();
+    changed(sound: value ? AppSound.taskComplete : AppSound.uiTap);
   }
 
   void deleteTask(TodoItem value) {
     tasks.remove(value);
-    changed();
+    changed(sound: AppSound.actionConfirm);
   }
 
   void deleteExpense(Expense value) {
     expenses.remove(value);
-    changed();
+    changed(sound: AppSound.actionConfirm);
   }
 
   void deleteFood(FoodEntry value) {
     foods.remove(value);
-    changed();
+    changed(sound: AppSound.actionConfirm);
   }
 
   void toggleMedicine(bool morning, bool value) {
@@ -218,7 +223,11 @@ class AppStore extends ChangeNotifier {
         xp: 6,
       );
     }
-    changed();
+    changed(
+      sound: value
+          ? (morning ? AppSound.morningSun : AppSound.taskComplete)
+          : AppSound.uiTap,
+    );
   }
 
   String _dailyQuestKey(String questId) => '$todayKey:$questId';
@@ -242,7 +251,7 @@ class AppStore extends ChangeNotifier {
     } else {
       dailyQuestDone.remove(key);
     }
-    changed();
+    changed(sound: value ? AppSound.taskComplete : AppSound.uiTap);
   }
 
   void triggerKlaksa() {
@@ -251,8 +260,9 @@ class AppStore extends ChangeNotifier {
   }
 
   void claimDailyChest() {
+    if (dailyChestClaimed) return;
     _reward('daily-chest:$todayKey', seeds: 10, xp: 18);
-    changed();
+    changed(sound: AppSound.rewardUnlock);
   }
 
   void updateReminderSettings(ReminderSettings value) {
@@ -268,6 +278,13 @@ class AppStore extends ChangeNotifier {
   void updateDailyCalorieGoal(int value) {
     dailyCalorieGoal = value.clamp(800, 5000).toInt();
     changed();
+  }
+
+  void updateSoundEnabled(bool value) {
+    if (soundEnabled == value) return;
+    soundEnabled = value;
+    SoundService.instance.configure(enabled: value);
+    changed(sound: value ? AppSound.actionConfirm : null);
   }
 
   AssistantMessage addAssistantMessage(String role, String text) {
@@ -306,7 +323,7 @@ class AppStore extends ChangeNotifier {
         ),
       );
       _reward('food:${foods.last.id}', seeds: 1, xp: 3);
-      changed();
+      changed(sound: AppSound.actionConfirm);
       return;
     }
     if (action.kind == 'expense' &&
@@ -322,7 +339,7 @@ class AppStore extends ChangeNotifier {
           date: DateTime.now(),
         ),
       );
-      changed();
+      changed(sound: AppSound.actionConfirm);
     }
   }
 
@@ -335,12 +352,12 @@ class AppStore extends ChangeNotifier {
     } else {
       products[index] = product;
     }
-    changed();
+    changed(sound: AppSound.actionConfirm);
   }
 
   void deleteProduct(Product product) {
     products.removeWhere((item) => item.id == product.id);
-    changed();
+    changed(sound: AppSound.actionConfirm);
   }
 
   FoodEntry addFoodFromProduct(Product product, double grams) {
@@ -358,7 +375,7 @@ class AppStore extends ChangeNotifier {
     );
     foods.add(food);
     _reward('food:${food.id}', seeds: 1, xp: 3);
-    changed();
+    changed(sound: AppSound.actionConfirm);
     return food;
   }
 
@@ -371,7 +388,7 @@ class AppStore extends ChangeNotifier {
     if (game.seeds < cost || game.nestLevel >= 5) return false;
     game.seeds -= cost;
     game.nestLevel += 1;
-    changed();
+    changed(sound: AppSound.rewardUnlock);
     return true;
   }
 
@@ -380,12 +397,12 @@ class AppStore extends ChangeNotifier {
     if (game.seeds < cost || game.gardenLevel >= 5) return false;
     game.seeds -= cost;
     game.gardenLevel += 1;
-    changed();
+    changed(sound: AppSound.rewardUnlock);
     return true;
   }
 
   void cleanWolfMess() {
     game.wolfMess = false;
-    changed();
+    changed(sound: AppSound.actionConfirm);
   }
 }

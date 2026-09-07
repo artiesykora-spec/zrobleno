@@ -1,12 +1,13 @@
 name: zrobleno
 description: Personal organizer for tasks, money, nutrition, reminders and a friendly assistant.
 publish_to: none
-version: 2.0.1+6
+version: 2.1.0+7
 
 environment:
-  sdk: '>=3.4.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
 
 dependencies:
+  audioplayers: 6.8.1
   flame: 1.38.2
   flutter:
     sdk: flutter
@@ -30,6 +31,7 @@ flutter:
   assets:
     - assets/game/
     - assets/game/rpg/
+    - assets/sounds/
   fonts:
     - family: ZroblenoMono
       fonts:

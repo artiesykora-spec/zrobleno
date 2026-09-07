@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../app_store.dart';
 import '../models.dart';
 import '../services/ai_service.dart';
+import '../services/sound_service.dart';
 import '../theme.dart';
 import 'settings_page.dart';
 
@@ -65,6 +66,7 @@ class _ScannerPageState extends State<ScannerPage> {
         await _reviewLabel(result);
       }
     } on AiServiceException catch (error) {
+      SoundService.instance.play(AppSound.softError);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -361,7 +363,7 @@ class _ScannerPageState extends State<ScannerPage> {
                         receiptPath: receiptPath,
                       );
                       widget.store.expenses.add(saved!);
-                      widget.store.changed();
+                      widget.store.changed(sound: AppSound.actionConfirm);
                       Navigator.pop(context);
                     },
                     icon: const Icon(Icons.check),
@@ -386,6 +388,7 @@ class _ScannerPageState extends State<ScannerPage> {
         widget.store.aiSettings,
       ).syncExpense(saved!, receipt: result);
     } on AiServiceException {
+      SoundService.instance.play(AppSound.softError);
       if (!mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

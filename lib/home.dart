@@ -6,6 +6,7 @@ import 'pages/food_page.dart';
 import 'pages/scanner_page.dart';
 import 'pages/tasks_page.dart';
 import 'pages/today_page.dart';
+import 'services/sound_service.dart';
 import 'theme.dart';
 
 class Home extends StatefulWidget {
@@ -62,7 +63,11 @@ class _HomeState extends State<Home> {
         ),
         bottomNavigationBar: _GameNavigation(
           index: index,
-          onChanged: (value) => setState(() => index = value),
+          onChanged: (value) {
+            if (value == index) return;
+            SoundService.instance.play(AppSound.uiTap);
+            setState(() => index = value);
+          },
         ),
       );
 }

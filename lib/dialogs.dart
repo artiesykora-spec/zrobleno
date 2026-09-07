@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'app_store.dart';
 import 'models.dart';
 import 'services/ai_service.dart';
+import 'services/sound_service.dart';
 
 Future<void> editTask(
   BuildContext context,
@@ -127,7 +128,7 @@ Future<void> editTask(
                   ..priority = priority
                   ..deadline = deadline;
               }
-              store.changed();
+              store.changed(sound: AppSound.actionConfirm);
               Navigator.pop(context);
             },
             child: const Text('Зберегти'),
@@ -227,7 +228,7 @@ Future<void> editExpense(
                   ..category = category;
                 saved = item;
               }
-              store.changed();
+              store.changed(sound: AppSound.actionConfirm);
               Navigator.pop(context);
             },
             child: const Text('Зберегти'),
@@ -321,7 +322,7 @@ Future<void> editFood(
                 ..carbs = number(4);
               saved = item;
             }
-            store.changed();
+            store.changed(sound: AppSound.actionConfirm);
             Navigator.pop(context);
           },
           child: const Text('Зберегти'),

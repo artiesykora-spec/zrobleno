@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app_store.dart';
 import 'home.dart';
 import 'services/notification_service.dart';
+import 'services/sound_service.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -12,6 +13,7 @@ Future<void> main() async {
   await initializeDateFormatting('uk');
   await NotificationService.instance.initialize();
   final store = await AppStore.load();
+  SoundService.instance.configure(enabled: store.soundEnabled);
   await NotificationService.instance.sync(
     store.reminders,
     morningTaken: store.morningMedicine,

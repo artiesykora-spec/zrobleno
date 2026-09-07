@@ -35,4 +35,16 @@ void main() {
     expect(store.game.seeds, startingSeeds + 10);
     expect(store.game.xp, startingXp + 18);
   });
+
+  test('sound preference defaults on and persists', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+
+    expect(store.soundEnabled, isTrue);
+    store.updateSoundEnabled(false);
+    await Future<void>.delayed(Duration.zero);
+
+    final restored = await AppStore.load();
+    expect(restored.soundEnabled, isFalse);
+  });
 }
