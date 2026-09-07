@@ -28,6 +28,7 @@ void main() {
           'result': {'message': 'AI підключено'},
         }),
         200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
         request: request,
       );
     });
