@@ -27,6 +27,7 @@ class _TodayPageState extends State<TodayPage>
   late final AnimationController _klaksa;
   final _garden = RpgGardenController();
   bool _klaksaRunning = false;
+  bool _klaksaRaidShown = false;
 
   static const dailyQuests = <_DailyQuest>[
     _DailyQuest(
@@ -40,7 +41,7 @@ class _TodayPageState extends State<TodayPage>
     _DailyQuest(
       id: 'water',
       title: 'Випити склянку води',
-      note: 'Маленьке відновлення',
+      note: 'Підтримати водний баланс',
       icon: Icons.water_drop_rounded,
       color: Color(0xFF79C9DF),
     ),
@@ -68,7 +69,7 @@ class _TodayPageState extends State<TodayPage>
     _DailyQuest(
       id: 'tidy',
       title: 'Навести лад в одному місці',
-      note: 'Достатньо зовсім маленької зони',
+      note: 'Обери одну конкретну зону',
       icon: Icons.cleaning_services_rounded,
       color: purple,
     ),
@@ -96,7 +97,7 @@ class _TodayPageState extends State<TodayPage>
     _DailyQuest(
       id: 'reflection',
       title: 'Занотувати одну перемогу дня',
-      note: 'Навіть найменшу',
+      note: 'Що сьогодні справді вдалося',
       icon: Icons.auto_awesome_rounded,
       color: Color(0xFFB58CE0),
       seeds: 3,
@@ -110,12 +111,27 @@ class _TodayPageState extends State<TodayPage>
       vsync: this,
       duration: const Duration(milliseconds: 2600),
     );
+    widget.store.addListener(_handleKlaksaState);
+    _handleKlaksaState();
   }
 
   @override
   void dispose() {
+    widget.store.removeListener(_handleKlaksaState);
     _klaksa.dispose();
     super.dispose();
+  }
+
+  void _handleKlaksaState() {
+    if (!widget.store.game.wolfMess) {
+      _klaksaRaidShown = false;
+      return;
+    }
+    if (_klaksaRaidShown) return;
+    _klaksaRaidShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.store.game.wolfMess) _startKlaksaRaid();
+    });
   }
 
   Future<void> _startKlaksaRaid() async {
@@ -181,7 +197,7 @@ class _TodayPageState extends State<TodayPage>
           _QuestChapter(
             eyebrow: 'ГОЛОВНА ЛІНІЯ',
             title: 'РИТУАЛИ СТАРОГО САДУ',
-            subtitle: 'Розбуди сад і не дай Кляксі все переплутати.',
+            subtitle: 'Тримай базові справи під контролем — і Кляксу подалі.',
             accent: sunYellow,
             children: [
               _QuestRow(
@@ -282,8 +298,6 @@ class _TodayPageState extends State<TodayPage>
     if (!wasTaken) {
       NotificationService.instance.cancelToday(morning);
       _garden.celebrate();
-      if (!store.game.wolfMess) store.triggerKlaksa();
-      _startKlaksaRaid();
     }
   }
 
